@@ -1,0 +1,21 @@
+{
+  "name": "revel-event-platform",
+  "version": "0.1.0",
+  "description": "Open-source community event management platform for Boulder Startup Week and beyond.",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250310.0",
+    "vitest": "^2.1.9",
+    "wrangler": "^4.73.0"
+  }
+}

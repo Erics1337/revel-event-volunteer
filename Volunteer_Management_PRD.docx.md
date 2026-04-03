@@ -1,0 +1,195 @@
+# **![][image1]**
+
+# **Boulder Startup Week**
+
+**Volunteer Management Feature**
+
+*Product Requirements Document*
+
+Version 1.0 | February 2026
+
+# **Executive Summary**
+
+The Volunteer Management feature aims to streamline recruitment, assignment, and communication for event volunteers within the core platform, eliminating fragmented workflows and manual tracking. Targeting both event administrators and volunteers, this feature provides an integrated set of tools for volunteer onboarding, shift scheduling, real-time communication, and exportable reporting. With direct competition from platforms like SignUp Genius, this feature differentiates itself via user-friendly features, tighter admin control, eligibility-based assignments, in-platform communications, and robust accessibility support.
+
+# **Problem Statement**
+
+Organizations running medium-to-large events face marked inefficiencies using manual spreadsheets or generic signup tools to manage volunteers. Admins spend excessive time tracking open shifts, eligibility, and last-minute schedule changes, resulting in:
+
+* Unfilled or overlapping shifts (often \>10% unassigned)  
+* Confusion among volunteers  
+* Communication breakdowns (missed emails, misrouted updates)  
+* High admin workload during and leading up to events
+
+Existing tools like SignUp Genius allow volunteer signups but lack rich integration, shift eligibility logic, advanced admin controls, or automated reporting—resulting in gaps that impact both organizers and volunteers.
+
+# **Vision & Goals**
+
+## **Vision**
+
+To empower event teams to manage the complete volunteer lifecycle—recruitment, assignment, communication, and retention—within one seamless platform, enabling a 95%+ shift fill rate, reducing admin effort, and elevating volunteer experience.
+
+## **BSW Goals**
+
+* Achieve a 95%+ filled volunteer shift rate within three months of launch.  
+* Cut admin time spent on volunteer scheduling by 50% (compared to previous years).  
+* Enable single-click CSV exports for compliance and reporting across all events.  
+* Drive a 25% increase in returning volunteers over two subsequent event cycles.
+
+## **User Goals**
+
+* Volunteers self-sign up for roles that fit their schedules/skills.  
+* Admins visualize and fill schedule gaps in real time, filter by eligibility.  
+* Schedules, changes, and critical info sent via preferred communication channels.  
+* Transparency at all points—volunteers and admins always see up-to-date assignments.
+
+
+# **Success Metrics**
+
+## **User Metrics**
+
+* ≥80% of event volunteers complete signup and select at least one shift.  
+* Volunteer satisfaction score ≥4.5/5 (post-event survey).  
+* 25% increase in repeat/returning volunteers after feature launch.
+
+## **BSW Organization Metrics**
+
+* 50% reduction in admin time spent on scheduling/logistics.  
+* ≤5% open/unassigned shifts by event date.  
+* Reporting usage: CSV export initiated by admin for email blast.
+
+# **User Personas**
+
+## **Admin (Volunteer Coordinator)**
+
+* **Who:** BSW core team, volunteer leads  
+* **Needs:** Manage schedules and communication for 200+ volunteers, rapid visibility on coverage gaps  
+* **Pain points:** Time-consuming review of volunteer sign-ups, managing assignments, and dealing with no-shows or confusion during the event
+
+## **Volunteer**
+
+* **Who:** Founders, community members, students  
+* **Needs:** Easy and fast discovery of available volunteer opportunities, visibility into their schedule, ability to make changes, ability to contact coordinator, communication from BSW organizing committee about volunteer shifts  
+* **Pain points:** Difficulty finding available shifts, difficulty knowing what volunteer assignment entails, poor/vague communication about day-of needs
+
+# **Core Features**
+
+## **1\. Volunteer Signup & Onboarding**
+
+* Volunteer profile creation/editing (contact, skills, availability)  
+* Eligibility-aware shift signup (show shifts meeting their preferences, e.g., Tuesday morning downtown Boulder)  
+* Personal communication preferences (email, SMS, push)
+
+## **2\. Admin Assignment & Scheduling**
+
+* Admin manual or bulk assignment of volunteers to shifts  
+* Shift eligibility rules and logic enforcement  
+* Real-time "schedule fill" dashboards with unfilled slot callouts
+
+## **3\. Schedule Management**
+
+* Calendar view for both individuals and entire team alongside event schedule if possible  
+* Volunteer self-cancellation or shift drop (with admin override, configurable cutoff)  
+* Open shift finder/search and filters
+
+## **4\. Communication & Notifications**
+
+* Automated confirmation and reminder flows (24h, 1h before shift)  
+* Admin-triggered bulk/group messaging by shift, day, or event  
+* Communication preferences respected across all notifications
+
+## **5\. Discovery & Browse**
+
+* One-click CSV export of volunteer data, assignments, and attendance  
+* Transparent audit log for activity tracking \- if it would be helpful for future events
+
+# **Nice-to-Have Features (Post-MVP)**
+
+* Dynamic shift swapping between volunteers (peer-to-peer exchange)  
+* Integrated post-shift/role feedback collection  
+* Mobile app push notifications (beyond SMS/email)  
+* Analytics dashboards (volunteer hours by type/role, engagement trendlines)  
+* Auto-suggest for filling last-minute open shifts
+
+# **Technical Architecture \- these are from AI, please REVIEW**
+
+## **Platform Integration**
+
+* Extension of main event management system—no separate login  
+* Admin and volunteer frontends are new tabs/sections in Event Dashboard and Volunteer Portal, respectively
+
+## **Services**
+
+* RESTful API endpoints for all volunteer data, assignments, schedules, and messaging  
+* Notification service routes by user preference (uses platform’s email/SMS/push systems)  
+* Rules engine for eligibility logic on shift assignment (age, skills, prior experience)  
+* Real-time update layer for admin dashboards and volunteer views (leverages existing pub/sub infrastructure)
+
+## **Data Models**
+
+* Volunteer: Profile, skills, contact, comms preferences, historical shifts  
+* Shift: Requirements, status, assigned/available slots  
+* Event: Meta-data, schedule/calendar, coordinator/roles
+
+## **Integration Points**
+
+* Event core data models (shifts, times, roles)  
+* Notifications module  
+* Calendar syncing APIs (e.g., Google Calendar, export to iCal)  
+* Platform reporting/compliance tools
+
+## **Security & Privacy**
+
+* All volunteer and event data managed under platform-wide security/compliance  
+* Role-based access control enforced for admin functionality
+
+## **Scalability & Reliability**
+
+* Scales to 500+ volunteers, 100+ shifts per event  
+* High-availability infrastructure for event peaks  
+* Real-time sync between admin and volunteer schedules
+
+# **Timeline & Milestones \- this is from AI, please REVIEW**
+
+## **Team**
+
+2–3 people: 1 Product Manager/Designer, 1–2 Full-stack Engineers
+
+## **Phases & Deliverables**
+
+| Phase | Duration | Key Deliverables | Dependencies |
+| :---- | :---- | :---- | :---- |
+| 1 | 1 week | Volunteer signup/onboarding, profile | Core event/shift schemas |
+| 2 | 1 week | Eligibility logic, admin assign, notifications | Notification routing, shift eligibility engine |
+| 3 | 1-2 weeks | Communication (bulk/group), reporting/export, schedule view, accessibility polish	 | Platform messaging/export modules |
+| Soft Launch | Overlaps phase 3 | Real event pilot, feedback, bugfix | Test event and user pool |
+
+#  **Additional Considerations**
+
+* Accessibility: Full support for screen readers, keyboard navigation, and responsive design.  
+* Localization: Interface texts prepared for future multi-language support.  
+* Performance: Stress-tested against peak event loads; automated reminders tested for high-volume/rapid changes.  
+* Data Privacy: Clear privacy policy reviewed for volunteer PII.  
+* Change Management: In-app guides/tooltips for both first-time admins and volunteers. 
+
+# **Out of Scope**
+
+* Integration with background check or external credential providers  
+* Standalone volunteer app or completely separate onboarding flow  
+* Automated volunteer incentives or gamification  
+* Real-time GPS location tracking
+
+# **Competitive Positioning**
+
+While generic tools like SignUp Genius and VolunteerLocal address core signup functionality, they fall short on several fronts relevant for complex and larger events:
+
+* Eligibility Logic: SignUp Genius allows open signups but lacks customizable eligibility enforcement (skills, certifications, prior shifts), leading to potential coverage mismatches. Our feature provides shift-level rules and admin overrides.  
+* Integrated Communication: Competing platforms often rely on external email, without centralized preference tracking or SMS support. Here, admins can broadcast messages, automate reminders, and respect volunteer communication preferences.  
+* Schedule Visibility: Drag-and-drop assignments and real-time visual dashboards for admins are more robust, reducing missed slots and double bookings. Solutions like SignUp Genius generally present static lists.  
+* Reporting and Compliance: One-click CSV export and audit logs offer superior downstream reporting, aiding compliance and stakeholder transparency.  
+* Accessibility & UX: Enhanced support for accessible signups and mobile-first flows ensures every volunteer can participate smoothly—a gap in many competitors’ offerings.
+
+
+In summary, this Volunteer Management feature offers deeper assignment control, seamless core platform integration, and advanced communication tools, setting it apart from standalone or generic volunteer signup solutions and making it the preferred choice for organizations with complex scheduling needs.
+
+[image1]: <data:image/png;base64,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>
