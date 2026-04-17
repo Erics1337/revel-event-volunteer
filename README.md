@@ -76,9 +76,10 @@ Contact Holly V or Ryan St. Pierre to learn more.
 - ✅ Event browse + filtering
 - ✅ Personal schedule management
 - ✅ Admin panel
-- 🔄 User authentication
-- 📋 Volunteer management (see `VOLUNTEER_PRD.md`)
+- 🔄 User authentication - magic link
+- 📋 Hosting 
 - 📋 Calendar export (.ics)
+- 📋 Collect phone #, texting opt-in
 - 📋 Keyword search
 - 📋 Social sign-on
 
