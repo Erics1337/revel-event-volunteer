@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+  --color-teal-800: #115e59;
+  --color-teal-900: #134e4a;
+  --color-teal-light: #ccfbf1;
+  --color-teal-dark: #0d9488;
+  --color-charcoal: #1f2937;
+  --color-gray-light: #f9fafb;
+  --color-gray-text: #6b7280;
+  --color-gray-mid: #9ca3af;
+  --color-gray-border: #e5e7eb;
+  --color-orange: #f97316;
+  --color-orange-dark: #ea580c;
+  --color-orange-light: #fed7aa;
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --font-sans: Inter, system-ui, -apple-system, sans-serif;
+  --font-serif: Space Grotesk, Inter, system-ui, sans-serif;
+  --font-accent: Space Grotesk, Inter, system-ui, sans-serif;
+  --radius-pill: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --shadow-card: 0px 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-btn: 4px 4px 0px rgba(0, 0, 0, 0.9);
+  --shadow-btn-hover: 6px 6px 0px rgba(0, 0, 0, 0.9);
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: var(--color-charcoal);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Custom utility classes from original design */
+.btn-primary {
+  background-color: var(--color-orange);
+  color: white;
+  padding: 0.875rem 2rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-orange-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-teal-500);
+  border: 2px solid var(--color-teal-500);
+  padding: 0.875rem 2rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-teal-500);
+  color: white;
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-teal-500);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 0.1s ease;
+}
+
+.btn-ghost:hover {
+  background-color: var(--color-gray-light);
+  text-decoration: underline;
+}
+
+.badge-default {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: var(--color-teal-light);
+  color: var(--color-teal-500);
+}
+
+.badge-featured {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: var(--color-orange-light);
+  color: var(--color-orange);
+}
+
+.badge-registered {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: var(--color-teal-500);
+  color: white;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-gray-border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  color: var(--color-charcoal);
+  background-color: white;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-teal-500);
+}
+
+.card {
+  background-color: white;
+  border: 1px solid var(--color-gray-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card);
+}
+
+/* Custom animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
