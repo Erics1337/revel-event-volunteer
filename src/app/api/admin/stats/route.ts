@@ -19,7 +19,7 @@ interface VenueUtilizationRow {
 }
 
 export async function GET() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     // Get current user and verify admin role

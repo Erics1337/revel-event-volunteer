@@ -6,7 +6,7 @@ import { isEventAdmin } from '@/lib/auth/roles'
 type UserRoleLookup = Pick<Database['public']['Tables']['users']['Row'], 'role'>
 
 export async function GET(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   
   const role = searchParams.get('role')
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const body = await request.json()
 
   try {
@@ -100,9 +100,9 @@ export async function PUT(request: Request) {
     }
 
     // Whitelist admin-assignable fields
-    const allowed = ['role', 'badges', 'blocked']
+    const allowed = ['role', 'badges', 'blocked'] as const
     const update: Partial<Pick<Database['public']['Tables']['users']['Update'], 'role' | 'badges' | 'blocked'>> = {}
-    
+
     for (const key of allowed) {
       if (key in body) {
         update[key] = body[key]

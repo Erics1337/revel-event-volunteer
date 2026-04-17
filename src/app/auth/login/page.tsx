@@ -1,22 +1,25 @@
 'use client'
 
 import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
 function LoginContent() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  
+
   const { signInWithMagicLink } = useAuth()
+  const nextPath = searchParams.get('redirectTo') || '/'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    const { error } = await signInWithMagicLink(email)
+    const { error } = await signInWithMagicLink(email, nextPath)
 
     if (error) {
       setError(error.message)

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     // Get current user
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const body = await request.json()
 
   try {

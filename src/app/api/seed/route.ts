@@ -1,6 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { Database } from '@/lib/supabase/database.types'
 
 interface Venue {
   id: string
@@ -11,7 +10,7 @@ interface Venue {
 }
 
 export async function POST() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
 
   try {
     // Insert venues
@@ -29,7 +28,7 @@ export async function POST() {
         { name: 'CU Boulder Campus', address: 'Boulder, CO 80309', maps_url: 'https://maps.google.com/?q=CU+Boulder', capacity: 1000 },
         { name: 'Boulder Public Library', address: '1001 Arapahoe Ave, Boulder, CO 80302', maps_url: 'https://maps.google.com/?q=Boulder+Public+Library', capacity: 200 },
         { name: 'Central Boulder', address: 'Downtown Boulder, CO 80302', maps_url: 'https://maps.google.com/?q=Downtown+Boulder', capacity: 100 }
-      ] as Database['public']['Tables']['venues']['Insert'][])
+      ])
       .select()
 
     if (venuesError) {
@@ -165,7 +164,7 @@ export async function POST() {
 
     const { data: insertedSessions, error: sessionsError } = await supabase
       .from('sessions')
-      .insert(sessions as Database['public']['Tables']['sessions']['Insert'][])
+      .insert(sessions)
       .select()
 
     if (sessionsError) {
@@ -224,7 +223,7 @@ export async function POST() {
 
     const { data: insertedShifts, error: shiftsError } = await supabase
       .from('volunteer_shifts')
-      .insert(volunteerShifts as Database['public']['Tables']['volunteer_shifts']['Insert'][])
+      .insert(volunteerShifts)
       .select()
 
     if (shiftsError) {
@@ -233,7 +232,7 @@ export async function POST() {
     }
 
     // Insert admin user
-    const { error: adminError } = await supabase
+    const { data: adminUser, error: adminError } = await supabase
       .from('users')
       .insert({
         email: 'eric.swanson.1337@gmail.com',
@@ -244,19 +243,20 @@ export async function POST() {
         badges: ['facilitator'],
         blocked: false,
         email_public: true
-      } as Database['public']['Tables']['users']['Insert'])
+      })
+      .select()
 
     if (adminError) {
       console.error('Error inserting admin user:', adminError)
       return NextResponse.json({ error: adminError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Database seeded successfully',
       venues: venues.length,
       sessions: insertedSessions.length,
       shifts: insertedShifts.length,
-      users: adminUser.length
+      users: adminUser?.length || 0
     })
 
   } catch (error) {

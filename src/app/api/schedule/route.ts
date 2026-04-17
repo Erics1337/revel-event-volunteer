@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { generateIcs } from '@/lib/ical'
 
 export async function GET(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const format = searchParams.get('format')
 

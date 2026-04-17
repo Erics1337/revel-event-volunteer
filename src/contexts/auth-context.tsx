@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { Database } from '@/lib/supabase/database.types'
+import { createClient } from '@/lib/supabase/client'
 
 type AuthUser = Database['public']['Tables']['users']['Row']
 
@@ -11,7 +12,7 @@ interface AuthContextType {
   profile: AuthUser | null
   loading: boolean
   signOut: () => Promise<void>
-  signInWithMagicLink: (email: string) => Promise<{ error: { message: string } | null }>
+  signInWithMagicLink: (email: string, nextPath?: string) => Promise<{ error: { message: string } | null }>
   refreshProfile: () => Promise<void>
 }
 
@@ -24,7 +25,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
       
       const { data, error } = await supabase
@@ -48,7 +48,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const initializeAuth = async () => {
       try {
-        const { createClient } = await import('@/lib/supabase/client')
         const supabase = createClient()
         
         // Get initial session
@@ -93,18 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile])
 
   const signOut = async () => {
-    const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
     await supabase.auth.signOut()
   }
 
-  const signInWithMagicLink = async (email: string) => {
-    const { createClient } = await import('@/lib/supabase/client')
+  const signInWithMagicLink = async (email: string, nextPath = '/') => {
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`,
       },
     })
     return { error }

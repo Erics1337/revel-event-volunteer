@@ -5,7 +5,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { sessionId } = await params
 
   try {
@@ -59,7 +59,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { sessionId } = await params
 
   try {

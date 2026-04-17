@@ -8,7 +8,7 @@ type UserRoleLookup = Pick<Database['public']['Tables']['users']['Row'], 'role'>
 type CsvRow = Record<string, string>
 
 export async function POST(request: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     // Get current user and verify admin role

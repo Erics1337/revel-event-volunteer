@@ -87,6 +87,7 @@ This repo is already linked to the production Supabase project `stmeubgvlednhhca
 | `BRAND.md` | Design system: colors, typography, component specs, voice/tone |
 | `PRD.md` | Platform product requirements, personas, feature scope, timeline |
 | `VOLUNTEER_PRD.md` | Volunteer management feature requirements |
+| `documentation/supabase-magic-link-template.html` | Branded Supabase magic-link email template |
 
 ### Tech Stack
 
