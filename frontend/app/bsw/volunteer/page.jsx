@@ -14,7 +14,19 @@ export default function VolunteerPortal() {
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true);
   const [signedUp, setSignedUp] = useState(new Set());
-  const [showRecruitModal, setShowRecruitModal] = useState(!IS_LOGGED_IN);
+  const [showRecruitModal, setShowRecruitModal] = useState(() => {
+    if (IS_LOGGED_IN) return false;
+    try {
+      return !localStorage.getItem('bsw_recruit_modal_seen');
+    } catch {
+      return true;
+    }
+  });
+
+  function dismissRecruitModal() {
+    try { localStorage.setItem('bsw_recruit_modal_seen', '1'); } catch {}
+    dismissRecruitModal();
+  }
 
   const roles = ['all', ...new Set(SHIFTS.map((s) => s.role))].sort((a, b) =>
     a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b)
@@ -247,7 +259,7 @@ export default function VolunteerPortal() {
       {showRecruitModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowRecruitModal(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) dismissRecruitModal(); }}
         >
           <div className="bg-white rounded-md w-full max-w-md shadow-card">
             {/* Gradient header */}
@@ -256,7 +268,7 @@ export default function VolunteerPortal() {
               style={{ background: 'linear-gradient(135deg, #2B8A8F 0%, #F5A623 60%, #F58220 100%)' }}
             >
               <button
-                onClick={() => setShowRecruitModal(false)}
+                onClick={() => dismissRecruitModal()}
                 aria-label="Close"
                 className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
               >
@@ -294,13 +306,13 @@ export default function VolunteerPortal() {
               <a
                 href="/bsw/volunteer/signup"
                 className="btn-primary text-center w-full"
-                onClick={() => setShowRecruitModal(false)}
+                onClick={() => dismissRecruitModal()}
               >
                 Become a Volunteer
               </a>
 
               <button
-                onClick={() => setShowRecruitModal(false)}
+                onClick={() => dismissRecruitModal()}
                 className="text-sm text-gray-text hover:text-teal text-center transition-colors"
               >
                 Just browsing shifts for now

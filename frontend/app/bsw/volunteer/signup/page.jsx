@@ -2,9 +2,26 @@
 
 import { useState } from 'react';
 import Nav from '../../../../components/Nav';
-import { ROLES, DAYS } from '../../../../lib/mockData';
+import { DAYS } from '../../../../lib/mockData';
 
-const STEPS = ['Your Info', 'Roles & Availability', 'Notifications'];
+const STEPS = ['Your Info', 'Availability & Preferences', 'Notifications'];
+
+const MOBILITY_OPTIONS = [
+  'Prefer seated role',
+  'Prefer standing/active role',
+  'Limited stairs/walking',
+  'Need accessible parking',
+  'Need accessible entrance',
+  'Avoid heavy lifting',
+];
+
+const ROLE_PREF_OPTIONS = [
+  'Avoid public speaking',
+  'Avoid large crowds',
+  'Love greeting people',
+  'Prefer behind-the-scenes',
+  'Happy to help with setup/teardown',
+];
 
 export default function VolunteerSignup() {
   const [step, setStep] = useState(0);
@@ -14,8 +31,10 @@ export default function VolunteerSignup() {
     email: '',
     phone: '',
     headline: '',
-    roles: [],
     availability: [],
+    mobility_prefs: [],
+    role_prefs: [],
+    pref_notes: '',
     comms_preference: 'email',
   });
 
@@ -35,7 +54,7 @@ export default function VolunteerSignup() {
 
   function canAdvance() {
     if (step === 0) return form.name.trim() && form.email.trim();
-    if (step === 1) return form.roles.length > 0 && form.availability.length > 0;
+    if (step === 1) return form.availability.length > 0;
     return true;
   }
 
@@ -163,42 +182,22 @@ export default function VolunteerSignup() {
               </div>
             )}
 
-            {/* Step 1 — Roles & Availability */}
+            {/* Step 1 — Availability & Preferences */}
             {step === 1 && (
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-6">
                 <div>
                   <h2 className="font-accent text-2xl font-semibold text-charcoal mb-1">
-                    Roles & Availability
+                    Availability & Preferences
                   </h2>
                   <p className="text-gray-text text-sm">
-                    Tell us what you're up for. We'll match you to shifts that fit.
+                    Tell us when you're free and anything that'll help us place you well.
                   </p>
                 </div>
 
+                {/* Days */}
                 <div>
-                  <h3 className="font-semibold text-charcoal mb-1">Which roles can you fill? *</h3>
-                  <p className="text-gray-text text-xs mb-3">Pick everything that works for you.</p>
-                  <div className="flex flex-wrap gap-2">
-                    {ROLES.map((role) => (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => toggleArray('roles', role)}
-                        className={`px-4 py-1.5 rounded-pill text-sm font-medium border transition-colors ${
-                          form.roles.includes(role)
-                            ? 'bg-teal text-white border-teal'
-                            : 'bg-white text-gray-text border-gray-border hover:border-teal hover:text-teal'
-                        }`}
-                      >
-                        {role}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-charcoal mb-1">Which days can you give? *</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="font-semibold text-charcoal mb-1">What days can you volunteer? *</h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {DAYS.map((d) => (
                       <button
                         key={d.date}
@@ -213,6 +212,67 @@ export default function VolunteerSignup() {
                         {d.full}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Shift preferences */}
+                <div className="flex flex-col gap-5 pt-2 border-t border-gray-border">
+                  <p className="text-xs font-semibold text-gray-text uppercase tracking-wide pt-2">Shift Preferences</p>
+
+                  {/* Physical & mobility */}
+                  <div>
+                    <h3 className="font-semibold text-charcoal mb-0.5">Physical & mobility</h3>
+                    <p className="text-sm text-gray-text mb-3">Any mobility considerations we should plan for?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {MOBILITY_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => toggleArray('mobility_prefs', opt)}
+                          className={`px-3 py-1.5 rounded-pill text-sm font-medium border transition-colors ${
+                            form.mobility_prefs.includes(opt)
+                              ? 'bg-teal text-white border-teal'
+                              : 'bg-white text-gray-text border-gray-border hover:border-teal hover:text-teal'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Role preferences */}
+                  <div>
+                    <h3 className="font-semibold text-charcoal mb-0.5">Role preferences</h3>
+                    <p className="text-sm text-gray-text mb-3">Any tasks you'd prefer to avoid or lean into?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ROLE_PREF_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => toggleArray('role_prefs', opt)}
+                          className={`px-3 py-1.5 rounded-pill text-sm font-medium border transition-colors ${
+                            form.role_prefs.includes(opt)
+                              ? 'bg-teal text-white border-teal'
+                              : 'bg-white text-gray-text border-gray-border hover:border-teal hover:text-teal'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Anything else */}
+                  <div>
+                    <h3 className="font-semibold text-charcoal mb-0.5">Anything else?</h3>
+                    <p className="text-sm text-gray-text mb-3">Tell us anything we missed that would help you have a good experience.</p>
+                    <textarea
+                      className="input min-h-[80px] resize-y"
+                      placeholder="e.g. I'm hard of hearing, need a quiet area, bringing my service dog..."
+                      value={form.pref_notes}
+                      onChange={(e) => update('pref_notes', e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -263,10 +323,6 @@ export default function VolunteerSignup() {
                   </p>
                   <p>
                     <span className="font-medium text-charcoal">Email:</span> {form.email}
-                  </p>
-                  <p>
-                    <span className="font-medium text-charcoal">Roles:</span>{' '}
-                    {form.roles.length > 0 ? form.roles.join(', ') : '—'}
                   </p>
                   <p>
                     <span className="font-medium text-charcoal">Available:</span>{' '}
