@@ -1,0 +1,6 @@
+export { CloseIcon } from './CloseIcon'
+export { MailIcon } from './MailIcon'
+export { BellIcon } from './BellIcon'
+export { DownloadIcon } from './DownloadIcon'
+export { SearchIcon } from './SearchIcon'
+export { CheckIcon } from './CheckIcon'

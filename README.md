@@ -4,7 +4,7 @@
 
 The event management platform for Boulder Startup Week and community-run events everywhere.
 
-🌐 **Live:** https://revel-event-hub.ryan-c9e.workers.dev/bsw/
+<!-- 🌐 **Live:** https://revel-event-hub.ryan-c9e.workers.dev/bsw/ -->
 
 ---
 
@@ -18,16 +18,68 @@ Built for Boulder Startup Week 2026 (May 4–8). 200+ events. 4,000+ attendees. 
 
 ## For Developers
 
-### Quick Start
+### Getting Started
+
+#### Run Supabase locally
+
+1. Install dependencies:
 
 ```bash
-git clone https://github.com/boulderstartupweek/event-platform.git
-cd event-platform
 npm install
+```
+
+2. Start local Supabase:
+
+```bash
+supabase start
+```
+
+3. Reset the local database and load the schema + seed data:
+
+```bash
+supabase db reset
+```
+
+4. Copy the local Supabase values into `.env.local`:
+
+```bash
+cp .env.example .env.local
+supabase status
+```
+
+Set these in `.env.local` from the `API URL`, `anon key`, and `service_role key` shown by `supabase status`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+5. Start the app:
+
+```bash
 npm run dev
 ```
 
-### Key Files
+#### Edit the production database
+
+1. Make your schema change in `supabase/migrations/`.
+
+2. Test it locally first:
+
+```bash
+supabase db reset
+```
+
+3. Push the migration to the linked production project:
+
+```bash
+supabase db push --linked
+```
+
+This repo is already linked to the production Supabase project `stmeubgvlednhhcakelt`.
+
+### Key Documentation Files
 
 | File | What It Is |
 |------|-----------|
@@ -35,13 +87,13 @@ npm run dev
 | `BRAND.md` | Design system: colors, typography, component specs, voice/tone |
 | `PRD.md` | Platform product requirements, personas, feature scope, timeline |
 | `VOLUNTEER_PRD.md` | Volunteer management feature requirements |
+| `documentation/supabase-magic-link-template.html` | Branded Supabase magic-link email template |
 
 ### Tech Stack
 
-- **Runtime:** Cloudflare Workers
 - **Frontend:** React + Next.js
-- **Database:** PostgreSQL
-- **Hosting:** Cloudflare (free tier for open source)
+- **Database:** Supabase PostgreSQL
+- **Hosting:** Vercel
 
 ### Contributing
 
