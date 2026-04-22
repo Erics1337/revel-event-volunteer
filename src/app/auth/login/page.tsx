@@ -19,7 +19,7 @@ function LoginContent() {
     setLoading(true)
     setError('')
 
-    const { error } = await signInWithMagicLink(email, nextPath)
+    const { error } = await signInWithMagicLink(email, { nextPath })
 
     if (error) {
       setError(error.message)
@@ -85,6 +85,7 @@ function LoginContent() {
               placeholder="Enter your email"
             />
           </div>
+
 
           <button
             type="submit"

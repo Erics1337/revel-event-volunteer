@@ -13,6 +13,7 @@ export default function ProfilePage() {
     headline: '',
     bio: '',
     linkedin_url: '',
+    phone: '',
     email_public: false,
   })
 
@@ -24,6 +25,7 @@ export default function ProfilePage() {
           headline: profile.headline || '',
           bio: profile.bio || '',
           linkedin_url: profile.linkedin_url || '',
+          phone: profile.phone || '',
           email_public: profile.email_public || false,
         })
       }
@@ -64,6 +66,7 @@ export default function ProfilePage() {
         headline: profile.headline || '',
         bio: profile.bio || '',
         linkedin_url: profile.linkedin_url || '',
+        phone: profile.phone || '',
         email_public: profile.email_public || false,
       })
     }
@@ -209,6 +212,24 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Phone number
+                </label>
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="input"
+                  placeholder="(555) 123-4567"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-text">
+                  Used for shift reminders and day-of coordination only.
+                </p>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
                   LinkedIn URL
                 </label>
                 <input
@@ -266,6 +287,19 @@ export default function ProfilePage() {
                   <p className="whitespace-pre-wrap text-gray-text">{profile.bio}</p>
                 </div>
               )}
+
+              <div>
+                <h3 className="mb-2 text-lg font-semibold text-charcoal">Phone</h3>
+                <p className="text-gray-text">
+                  {profile.phone ? (
+                    <a href={`tel:${profile.phone}`} className="text-teal hover:underline">
+                      {profile.phone}
+                    </a>
+                  ) : (
+                    'No phone number on file'
+                  )}
+                </p>
+              </div>
 
               {profile.linkedin_url && (
                 <div>

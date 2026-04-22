@@ -4,8 +4,6 @@
 
 The event management platform for Boulder Startup Week and community-run events everywhere.
 
-<!-- 🌐 **Live:** https://revel-event-hub.ryan-c9e.workers.dev/bsw/ -->
-
 ---
 
 ## What Is This

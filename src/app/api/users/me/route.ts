@@ -57,7 +57,7 @@ export async function PUT(request: Request) {
     }
 
     // Whitelist updatable fields - never allow role/badges/blocked via this endpoint
-    const allowed = ['name', 'headline', 'bio', 'linkedin_url', 'avatar_url', 'email_public']
+    const allowed = ['name', 'headline', 'bio', 'linkedin_url', 'avatar_url', 'email_public', 'phone']
     const update: Record<string, unknown> = {}
     
     for (const key of allowed) {

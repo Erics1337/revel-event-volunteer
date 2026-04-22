@@ -39,15 +39,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const pathname = request.nextUrl.pathname
+
   // Protected routes
-  if (!user && request.nextUrl.pathname.startsWith('/admin')) {
+  if (!user && pathname.startsWith('/admin')) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    url.searchParams.set('redirectTo', request.nextUrl.pathname)
+    url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
   }
 
-  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+  if (user && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('users')
       .select('role')
@@ -78,7 +80,6 @@ export async function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages, but NEVER interfere
   // with the OAuth/magic-link callback handlers — those must always run so
   // they can complete the session exchange and surface any errors.
-  const pathname = request.nextUrl.pathname
   const isAuthCallback =
     pathname.startsWith('/auth/callback') ||
     pathname.startsWith('/auth/confirm') ||

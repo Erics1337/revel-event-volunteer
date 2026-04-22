@@ -482,10 +482,10 @@ INSERT INTO volunteer_shifts (role, day, start_time, end_time, location, total_s
 ('Building Runner', '2026-05-09', '16:30', '18:30', 'Brand Studios', 2, 0),
 ('Room Runner', '2026-05-09', '16:30', '18:30', 'Brand Studios', 2, 0);
 
--- Insert real admin users
-INSERT INTO users (email, name, headline, bio, role, badges, blocked, email_public) VALUES
-('erics1337@gmail.com', 'Eric Swanson', 'BSW Organizer', 'Boulder Startup Week organizer', 'admin', ARRAY['facilitator'], false, false),
-('hmeibling@gmail.com', 'Hannah Meibling', 'BSW Organizer', 'Boulder Startup Week organizer', 'admin', ARRAY['facilitator'], false, false),
-('ryan@thresholdlabs.io', 'Ryan', 'BSW Organizer', 'Boulder Startup Week organizer', 'admin', ARRAY['facilitator'], false, false),
-('Elvin.Webb@gmail.com', 'Elvin Webb', 'BSW Organizer', 'Boulder Startup Week organizer', 'admin', ARRAY['facilitator'], false, false),
-('jana.r.montgomery@gmail.com', 'Jana Montgomery', 'BSW Organizer', 'Boulder Startup Week organizer', 'admin', ARRAY['facilitator'], false, false);
+-- Admin accounts are NOT seeded here. Seeding them directly into public.users
+-- would require fabricating UUIDs that don't exist in auth.users, which
+-- violates the users_id_fkey foreign key (migration 007).
+--
+-- Instead, migration 008_admin_allowlist installs a BEFORE INSERT trigger
+-- that promotes a configured set of emails to role='admin' the first time
+-- they sign in via magic link. Manage the list in public.admin_allowlist.

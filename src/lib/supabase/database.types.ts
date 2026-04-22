@@ -34,6 +34,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_allowlist: {
+        Row: {
+          email: string
+        }
+        Insert: {
+          email: string
+        }
+        Update: {
+          email?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string
@@ -196,6 +208,7 @@ export type Database = {
           id: string
           linkedin_url: string | null
           name: string
+          phone: string | null
           role: string
           updated_at: string | null
         }
@@ -211,6 +224,7 @@ export type Database = {
           id?: string
           linkedin_url?: string | null
           name: string
+          phone?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -226,6 +240,7 @@ export type Database = {
           id?: string
           linkedin_url?: string | null
           name?: string
+          phone?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -238,7 +253,7 @@ export type Database = {
           created_at: string | null
           id: string
           maps_url: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at: string | null
         }
         Insert: {
@@ -247,7 +262,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Update: {
@@ -256,7 +271,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name?: string
+          name?: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Relationships: []
@@ -304,8 +319,8 @@ export type Database = {
           end_time: string
           filled_slots: number | null
           id: string
-          location: string
-          role: string
+          location: Database["public"]["Enums"]["venue_name"]
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -315,8 +330,8 @@ export type Database = {
           end_time: string
           filled_slots?: number | null
           id?: string
-          location: string
-          role: string
+          location: Database["public"]["Enums"]["venue_name"]
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -326,8 +341,8 @@ export type Database = {
           end_time?: string
           filled_slots?: number | null
           id?: string
-          location?: string
-          role?: string
+          location?: Database["public"]["Enums"]["venue_name"]
+          role?: Database["public"]["Enums"]["shift_role"]
           start_time?: string
           total_slots?: number
         }
@@ -379,7 +394,18 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      shift_role:
+        | "ALL DAY - LOCATION CAPTAIN"
+        | "Building Runner"
+        | "Room Runner"
+        | "Volunteer Hub / Door Monitor"
+      venue_name:
+        | "Boulder Associates"
+        | "Boulder Public Library"
+        | "Brand Studios"
+        | "Canyon Center"
+        | "Rosetta Hall"
+        | "SOVRN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -509,7 +535,22 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      shift_role: [
+        "ALL DAY - LOCATION CAPTAIN",
+        "Building Runner",
+        "Room Runner",
+        "Volunteer Hub / Door Monitor",
+      ],
+      venue_name: [
+        "Boulder Associates",
+        "Boulder Public Library",
+        "Brand Studios",
+        "Canyon Center",
+        "Rosetta Hall",
+        "SOVRN",
+      ],
+    },
   },
 } as const
 
