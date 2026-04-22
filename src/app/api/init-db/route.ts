@@ -56,7 +56,7 @@ export async function POST() {
         bio TEXT,
         linkedin_url TEXT,
         email_public BOOLEAN DEFAULT false,
-        role TEXT NOT NULL DEFAULT 'volunteer' CHECK (role IN ('event_admin', 'volunteer')),
+        role TEXT NOT NULL DEFAULT 'volunteer' CHECK (role IN ('admin', 'volunteer')),
         badges TEXT[] DEFAULT '{}',
         blocked BOOLEAN DEFAULT false,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

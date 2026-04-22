@@ -239,7 +239,7 @@ export async function POST() {
         name: 'Eric Swanson',
         headline: 'Event Administrator',
         bio: 'Admin account for Boulder Startup Week 2026',
-        role: 'event_admin',
+        role: 'admin',
         badges: ['facilitator'],
         blocked: false,
         email_public: true
