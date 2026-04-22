@@ -4,8 +4,6 @@
 
 The event management platform for Boulder Startup Week and community-run events everywhere.
 
-<!-- 🌐 **Live:** https://revel-event-hub.ryan-c9e.workers.dev/bsw/ -->
-
 ---
 
 ## What Is This
@@ -37,8 +35,14 @@ supabase start
 3. Reset the local database and load the schema + seed data:
 
 ```bash
-supabase db reset
+npm run db:reset
 ```
+
+This wrapper runs `supabase db reset` and then automatically regenerates
+TypeScript types from the fresh schema into
+`src/lib/supabase/database.types.ts`. Never call `supabase db reset` directly
+unless you also plan to run `npm run db:types` manually — otherwise your
+TypeScript types will drift from the database.
 
 4. Copy the local Supabase values into `.env.local`:
 
@@ -63,21 +67,75 @@ npm run dev
 
 #### Edit the production database
 
-1. Make your schema change in `supabase/migrations/`.
-
-2. Test it locally first:
+1. Create a new migration file:
 
 ```bash
-supabase db reset
+npm run db:migrate:new -- <migration_name>
 ```
 
-3. Push the migration to the linked production project:
+2. Edit the new file under `supabase/migrations/`.
+
+3. Test it locally (resets DB **and** regenerates types):
 
 ```bash
-supabase db push --linked
+npm run db:reset
+```
+
+4. Push the migration to the linked production project (also regenerates types
+   from the production schema):
+
+```bash
+npm run db:push
 ```
 
 This repo is already linked to the production Supabase project `stmeubgvlednhhcakelt`.
+
+#### Database script reference
+
+| Script | What it does |
+|--------|--------------|
+| `npm run db:types` | Regenerate `src/lib/supabase/database.types.ts` from the **local** Supabase instance |
+| `npm run db:reset` | `supabase db reset` + `db:types` (fresh schema + fresh types) |
+| `npm run db:migrate:new -- <name>` | Scaffold a new migration file |
+| `npm run db:migrate:up` | Apply pending migrations locally + `db:types` |
+| `npm run db:push` | Push migrations to the linked production DB + `db:types` |
+
+**Always** use the `db:*` npm scripts instead of calling `supabase` directly so
+that `database.types.ts` stays in sync with the schema.
+
+#### Generating TypeScript types manually
+
+`src/lib/supabase/database.types.ts` is the source of truth for every
+`Database` type import in the codebase (`@supabase/supabase-js` clients, RLS
+helpers, API route handlers, etc.). Whenever the schema changes, this file
+**must** be regenerated — otherwise the app compiles against a stale schema
+and you'll get runtime errors on columns that exist in one but not the other.
+
+The raw command the npm scripts wrap:
+
+```bash
+# From the LOCAL Supabase instance (requires `supabase start` to be running).
+# Use this during normal development so types reflect un-pushed migrations.
+npx supabase gen types typescript --local > src/lib/supabase/database.types.ts
+
+# From the LINKED REMOTE project (reads the production schema directly).
+# Use this when you want types that mirror what's deployed, or when you don't
+# have Docker / local Supabase running.
+npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts
+
+# From a specific remote project by ref (no linking required).
+npx supabase gen types typescript --project-id <project-ref> > src/lib/supabase/database.types.ts
+```
+
+| Flag | Source | When to use |
+|------|--------|-------------|
+| `--local` | Local Docker Supabase | Default dev loop — includes un-pushed migrations |
+| `--linked` | Remote project this repo is linked to | Verify types match production after a `db push` |
+| `--project-id <ref>` | Any remote project | One-off / CI without `supabase link` |
+
+Prefer `--local` during development: you get types for migrations you're still
+iterating on before they've been pushed. Switch to `--linked` right after
+`npm run db:push` to confirm the production schema matches what you expect.
 
 ### Key Documentation Files
 

@@ -12,7 +12,10 @@ interface AuthContextType {
   profile: AuthUser | null
   loading: boolean
   signOut: () => Promise<void>
-  signInWithMagicLink: (email: string, nextPath?: string) => Promise<{ error: { message: string } | null }>
+  signInWithMagicLink: (
+    email: string,
+    options?: { nextPath?: string }
+  ) => Promise<{ error: { message: string } | null }>
   refreshProfile: () => Promise<void>
 }
 
@@ -23,23 +26,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (authUser: User) => {
+    if (!authUser?.id) return
+
     try {
       const supabase = createClient()
-      
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .single()
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error fetching profile:', error)
-      } else {
+      if (data) {
         setProfile(data)
+        return
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error)
+
+      // PGRST116 = no rows returned. This happens when /auth/callback didn't
+      // get a chance to create the public.users row (e.g. Supabase redirected
+      // the magic link straight to "/" instead of /auth/callback). Create the
+      // row here so downstream UI (profile page, phone-required modal) can
+      // render correctly.
+      if (error && error.code === 'PGRST116') {
+        const fallbackName =
+          (typeof authUser.user_metadata?.full_name === 'string' &&
+            authUser.user_metadata.full_name) ||
+          authUser.email?.split('@')[0] ||
+          'Volunteer'
+
+        const { data: created, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email ?? '',
+            name: fallbackName,
+            role: 'volunteer',
+          })
+          .select('*')
+          .single()
+
+        if (insertError) {
+          // 23503 = foreign_key_violation. The user's session JWT references
+          // an auth.users row that no longer exists (typically after a local
+          // db:reset). Sign them out so the next sign-in creates a valid
+          // session instead of looping on 406/409.
+          if (insertError.code === '23503') {
+            console.warn('Stale session detected (auth user missing); signing out.')
+            await supabase.auth.signOut()
+            return
+          }
+
+          // 23505 = unique_violation. Happens when a stale public.users row
+          // exists for this email but with a different auth uuid (pre-FK
+          // drift). Fall back to fetching by email so the UI still works;
+          // the 007_users_auth_fk migration prevents new drift.
+          if (insertError.code === '23505' && authUser.email) {
+            const { data: existing } = await supabase
+              .from('users')
+              .select('*')
+              .eq('email', authUser.email)
+              .maybeSingle()
+            if (existing) {
+              setProfile(existing)
+              return
+            }
+          }
+          console.error('Error creating profile:', insertError)
+          return
+        }
+
+        setProfile(created)
+        return
+      }
+
+      if (error) {
+        console.error('Error fetching profile:', error)
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err)
     }
   }, [])
 
@@ -55,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (session?.user) {
           setUser(session.user)
-          await fetchProfile(session.user.id)
+          await fetchProfile(session.user)
         }
         
         setLoading(false)
@@ -65,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           async (event: string, session: { user: User } | null) => {
             if (session?.user) {
               setUser(session.user)
-              await fetchProfile(session.user.id)
+              await fetchProfile(session.user)
             } else {
               setUser(null)
               setProfile(null)
@@ -96,12 +161,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
   }
 
-  const signInWithMagicLink = async (email: string, nextPath = '/') => {
+  const signInWithMagicLink = async (
+    email: string,
+    { nextPath = '/' }: { nextPath?: string } = {}
+  ) => {
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
       },
     })
     return { error }
@@ -109,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id)
+      await fetchProfile(user)
     }
   }
 

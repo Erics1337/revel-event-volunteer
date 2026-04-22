@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tomorrow: Your Volunteer Shift — Boulder Startup Week 2026</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F5F5F5;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+    }
+    
+    .header {
+      background: #2B8A8F;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    
+    .logo {
+      margin-bottom: 12px;
+    }
+    
+    .logo img {
+      height: 45px;
+      width: auto;
+    }
+    
+    .header h1 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      color: #FFFFFF;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+    }
+    
+    .header-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      margin: 0;
+    }
+    
+    .urgent-banner {
+      background: #F58220;
+      color: #FFFFFF;
+      text-align: center;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .content {
+      padding: 40px 30px;
+    }
+    
+    .greeting {
+      font-size: 18px;
+      color: #333333;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    
+    .shift-box {
+      background-color: #E8F5F5;
+      border-left: 4px solid #2B8A8F;
+      padding: 24px;
+      margin: 24px 0;
+      border-radius: 0 12px 12px 0;
+    }
+    
+    .shift-role {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #2B8A8F;
+      margin: 0 0 16px 0;
+    }
+    
+    .shift-detail {
+      font-size: 14px;
+      color: #333333;
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    
+    .shift-detail strong {
+      color: #2B8A8F;
+    }
+    
+    .callout {
+      background-color: #FFF4E6;
+      border-left: 4px solid #F58220;
+      padding: 16px 20px;
+      margin: 24px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .callout p {
+      font-size: 14px;
+      color: #333333;
+      margin: 0;
+      line-height: 1.5;
+    }
+    
+    .callout strong {
+      color: #F58220;
+    }
+    
+    .button-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    
+    .btn {
+      display: inline-block;
+      background: #F58220;
+      color: #FFFFFF;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.9);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.9);
+      background: #D96E10;
+    }
+    
+    .footer {
+      background-color: #F5F5F5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #E5E5E5;
+    }
+    
+    .footer p {
+      color: #666666;
+      font-size: 14px;
+      margin: 0 0 8px 0;
+    }
+    
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 30px 20px;
+      }
+      
+      .header h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="urgent-banner">
+      ⏰ YOUR SHIFT IS TOMORROW
+    </div>
+    
+    <div class="header">
+      <div class="logo">
+        <img src="{{ .SiteURL }}/bsw-logo-BUCTZ2oQ.png" alt="Boulder Startup Week" />
+      </div>
+      <h1>See You Tomorrow!</h1>
+      <p class="header-subtitle">Boulder Startup Week 2026</p>
+    </div>
+    
+    <div class="content">
+      <p class="greeting">Hey {{ .Name }},</p>
+      
+      <p style="font-size: 16px; color: #666666; line-height: 1.6; margin-bottom: 20px;">
+        Quick reminder — your volunteer shift is <strong style="color: #333333;">tomorrow</strong>:
+      </p>
+      
+      <div class="shift-box">
+        <p class="shift-role">{{ .ShiftRole }}</p>
+        <p class="shift-detail"><strong>When:</strong> {{ .ShiftDay }}, {{ .ShiftTime }}</p>
+        <p class="shift-detail"><strong>Where:</strong> {{ .ShiftLocation }}</p>
+      </div>
+      
+      <div class="callout">
+        <p><strong>Can't make it?</strong> Please cancel ASAP so we can find someone to cover. Just click below to manage your shifts.</p>
+      </div>
+      
+      <p style="font-size: 16px; color: #666666; line-height: 1.6; margin: 24px 0;">
+        You'll get another heads up 1 hour before your shift starts.
+      </p>
+      
+      <div class="button-container">
+        <a href="{{ .SiteURL }}/volunteers" class="btn">
+          Manage My Shifts
+        </a>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p><strong>Boulder Startup Week 2026</strong></p>
+      <p>Community-built. Community-owned. No BS.</p>
+    </div>
+  </div>
+</body>
+</html>

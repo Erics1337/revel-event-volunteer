@@ -3,22 +3,33 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 interface AdminStats {
   total_users: number
-  total_sessions: number
-  total_registrations: number
-  popular_sessions: Array<{
+  total_shifts: number
+  total_volunteers: number
+  confirmed_volunteers: number
+  total_assignments: number
+  total_slots: number
+  filled_slots: number
+  open_slots: number
+  fill_rate: number
+  shifts_by_day: Record<string, { total: number; filled: number }>
+  understaffed_shifts: Array<{
     id: string
-    title: string
-    registration_count: number
+    role: string
+    day: string
+    location: string
+    total_slots: number
+    filled_slots: number
+    unfilled: number
   }>
-  registrations_by_day: Record<string, number>
-  venue_utilization: Array<{
+  location_utilization: Array<{
     name: string
-    sessions: number
-    totalRegistrations: number
+    shifts: number
+    totalSlots: number
+    filledSlots: number
   }>
 }
 
@@ -43,7 +54,7 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    if (!isEventAdmin(profile?.role)) {
+    if (!isAdmin(profile?.role)) {
       return
     }
 
@@ -56,7 +67,7 @@ export default function AdminDashboard() {
     }
   }, [profile, fetchStats])
 
-  if (!user || !profile || !isEventAdmin(profile.role)) {
+  if (!user || !profile || !isAdmin(profile.role)) {
     return (
       <div className="min-h-screen bg-gray-light flex items-center justify-center">
         <div className="text-center">
@@ -109,6 +120,7 @@ export default function AdminDashboard() {
             <Link href="/admin" className="text-teal font-medium">Dashboard</Link>
             <Link href="/admin/users" className="text-gray-text hover:text-teal transition-colors">Users</Link>
             <Link href="/admin/volunteers" className="text-gray-text hover:text-teal transition-colors">Volunteers</Link>
+            <Link href="/admin/shifts" className="text-gray-text hover:text-teal transition-colors">Shifts</Link>
             <Link href="/profile" className="text-gray-text hover:text-teal transition-colors">Profile</Link>
           </nav>
         </div>
@@ -139,8 +151,11 @@ export default function AdminDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-text mb-1">Total Sessions</p>
-                <p className="text-3xl font-bold text-charcoal">{stats?.total_sessions || 0}</p>
+                <p className="text-sm text-gray-text mb-1">Total Shifts</p>
+                <p className="text-3xl font-bold text-charcoal">{stats?.total_shifts || 0}</p>
+                <p className="text-xs text-gray-text mt-1">
+                  {stats?.filled_slots || 0} / {stats?.total_slots || 0} slots filled ({Math.round((stats?.fill_rate || 0) * 100)}%)
+                </p>
               </div>
               <div className="w-12 h-12 bg-teal-light rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,8 +168,11 @@ export default function AdminDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-text mb-1">Total Registrations</p>
-                <p className="text-3xl font-bold text-charcoal">{stats?.total_registrations || 0}</p>
+                <p className="text-sm text-gray-text mb-1">Volunteers</p>
+                <p className="text-3xl font-bold text-charcoal">{stats?.total_volunteers || 0}</p>
+                <p className="text-xs text-gray-text mt-1">
+                  {stats?.confirmed_volunteers || 0} confirmed · {stats?.total_assignments || 0} assignments
+                </p>
               </div>
               <div className="w-12 h-12 bg-teal-light rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,72 +184,78 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Popular Sessions */}
+          {/* Understaffed Shifts */}
           <div className="card">
-            <h3 className="text-lg font-semibold text-charcoal mb-4">Popular Sessions</h3>
-            {stats?.popular_sessions && stats.popular_sessions.length > 0 ? (
+            <h3 className="text-lg font-semibold text-charcoal mb-4">Shifts Needing Volunteers</h3>
+            {stats?.understaffed_shifts && stats.understaffed_shifts.length > 0 ? (
               <div className="space-y-3">
-                {stats.popular_sessions.map((session, index) => (
-                  <div key={session.id} className="flex items-center justify-between">
+                {stats.understaffed_shifts.map((shift) => (
+                  <div key={shift.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-text">#{index + 1}</span>
+                      <span className="text-sm font-medium text-red-600">-{shift.unfilled}</span>
                       <div>
-                        <p className="font-medium text-charcoal">{session.title}</p>
-                        <p className="text-sm text-gray-text">{session.registration_count} registered</p>
+                        <p className="font-medium text-charcoal">{shift.role}</p>
+                        <p className="text-sm text-gray-text">
+                          {formatDate(shift.day)} · {shift.location} · {shift.filled_slots}/{shift.total_slots} filled
+                        </p>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-text">No sessions available</p>
+              <p className="text-gray-text">All shifts fully staffed — nice.</p>
             )}
           </div>
 
-          {/* Registrations by Day */}
+          {/* Shifts by Day */}
           <div className="card">
-            <h3 className="text-lg font-semibold text-charcoal mb-4">Registrations by Day</h3>
-            {stats?.registrations_by_day && Object.keys(stats.registrations_by_day).length > 0 ? (
+            <h3 className="text-lg font-semibold text-charcoal mb-4">Slots by Day</h3>
+            {stats?.shifts_by_day && Object.keys(stats.shifts_by_day).length > 0 ? (
               <div className="space-y-3">
-                {Object.entries(stats.registrations_by_day)
+                {Object.entries(stats.shifts_by_day)
                   .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([day, count]) => (
+                  .map(([day, counts]) => (
                     <div key={day} className="flex items-center justify-between">
                       <span className="text-gray-text">{formatDate(day)}</span>
-                      <span className="font-medium text-charcoal">{count}</span>
+                      <span className="font-medium text-charcoal">
+                        {counts.filled} / {counts.total}
+                      </span>
                     </div>
                   ))}
               </div>
             ) : (
-              <p className="text-gray-text">No registration data available</p>
+              <p className="text-gray-text">No shift data available</p>
             )}
           </div>
         </div>
 
-        {/* Venue Utilization */}
-        {stats?.venue_utilization && stats.venue_utilization.length > 0 && (
+        {/* Location Utilization */}
+        {stats?.location_utilization && stats.location_utilization.length > 0 && (
           <div className="card mt-8">
-            <h3 className="text-lg font-semibold text-charcoal mb-4">Venue Utilization</h3>
+            <h3 className="text-lg font-semibold text-charcoal mb-4">Location Utilization</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-border">
-                    <th className="text-left py-2 text-gray-text">Venue</th>
-                    <th className="text-left py-2 text-gray-text">Sessions</th>
-                    <th className="text-left py-2 text-gray-text">Total Registrations</th>
-                    <th className="text-left py-2 text-gray-text">Avg per Session</th>
+                    <th className="text-left py-2 text-gray-text">Location</th>
+                    <th className="text-left py-2 text-gray-text">Shifts</th>
+                    <th className="text-left py-2 text-gray-text">Slots (filled / total)</th>
+                    <th className="text-left py-2 text-gray-text">Fill Rate</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.venue_utilization
-                    .sort((a, b) => b.totalRegistrations - a.totalRegistrations)
-                    .map((venue, index) => (
+                  {stats.location_utilization
+                    .sort((a, b) => b.totalSlots - a.totalSlots)
+                    .map((loc, index) => (
                       <tr key={index} className="border-b border-gray-border last:border-0">
-                        <td className="py-2 font-medium text-charcoal">{venue.name}</td>
-                        <td className="py-2 text-gray-text">{venue.sessions}</td>
-                        <td className="py-2 text-gray-text">{venue.totalRegistrations}</td>
+                        <td className="py-2 font-medium text-charcoal">{loc.name}</td>
+                        <td className="py-2 text-gray-text">{loc.shifts}</td>
                         <td className="py-2 text-gray-text">
-                          {venue.sessions > 0 ? Math.round(venue.totalRegistrations / venue.sessions) : 0}
+                          {loc.filledSlots} / {loc.totalSlots}
+                        </td>
+                        <td className="py-2 text-gray-text">
+                          {loc.totalSlots > 0 ? Math.round((loc.filledSlots / loc.totalSlots) * 100) : 0}%
                         </td>
                       </tr>
                     ))}

@@ -1,9 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   })
 
@@ -23,13 +23,10 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value, options))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
             supabaseResponse.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }
@@ -42,22 +39,24 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const pathname = request.nextUrl.pathname
+
   // Protected routes
-  if (!user && request.nextUrl.pathname.startsWith('/admin')) {
+  if (!user && pathname.startsWith('/admin')) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    url.searchParams.set('redirectTo', request.nextUrl.pathname)
+    url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
   }
 
-  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+  if (user && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (!isEventAdmin(profile?.role)) {
+    if (!isAdmin(profile?.role)) {
       const url = request.nextUrl.clone()
       url.pathname = '/volunteers'
       return NextResponse.redirect(url)
@@ -78,10 +77,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from auth pages
-  if (user && request.nextUrl.pathname.startsWith('/auth')) {
+  // Redirect authenticated users away from auth pages, but NEVER interfere
+  // with the OAuth/magic-link callback handlers — those must always run so
+  // they can complete the session exchange and surface any errors.
+  const isAuthCallback =
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/auth/confirm') ||
+    pathname.startsWith('/auth/auth-code-error')
+
+  if (user && pathname.startsWith('/auth') && !isAuthCallback) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 

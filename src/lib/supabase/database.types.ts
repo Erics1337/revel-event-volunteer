@@ -7,104 +7,95 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
-      registrations: {
+      admin_allowlist: {
         Row: {
+          email: string
+        }
+        Insert: {
+          email: string
+        }
+        Update: {
+          email?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string | null
+          error_message: string | null
           id: string
-          registered_at: string | null
-          session_id: string | null
+          sent_at: string | null
+          shift_id: string | null
+          status: string
+          subject: string
+          type: string
           user_id: string | null
         }
         Insert: {
+          body: string
+          created_at?: string | null
+          error_message?: string | null
           id?: string
-          registered_at?: string | null
-          session_id?: string | null
+          sent_at?: string | null
+          shift_id?: string | null
+          status?: string
+          subject: string
+          type: string
           user_id?: string | null
         }
         Update: {
+          body?: string
+          created_at?: string | null
+          error_message?: string | null
           id?: string
-          registered_at?: string | null
-          session_id?: string | null
+          sent_at?: string | null
+          shift_id?: string | null
+          status?: string
+          subject?: string
+          type?: string
           user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "registrations_session_id_fkey"
-            columns: ["session_id"]
+            foreignKeyName: "notifications_shift_id_fkey"
+            columns: ["shift_id"]
             isOneToOne: false
-            referencedRelation: "sessions"
+            referencedRelation: "volunteer_shifts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registrations_user_id_fkey"
+            foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sessions: {
-        Row: {
-          attachments: Json | null
-          category: string
-          created_at: string | null
-          day: string
-          description: string | null
-          end_time: string
-          id: string
-          registration_count: number | null
-          start_time: string
-          status: string
-          title: string
-          type: string
-          updated_at: string | null
-          venue_id: string | null
-        }
-        Insert: {
-          attachments?: Json | null
-          category: string
-          created_at?: string | null
-          day: string
-          description?: string | null
-          end_time: string
-          id?: string
-          registration_count?: number | null
-          start_time: string
-          status?: string
-          title: string
-          type: string
-          updated_at?: string | null
-          venue_id?: string | null
-        }
-        Update: {
-          attachments?: Json | null
-          category?: string
-          created_at?: string | null
-          day?: string
-          description?: string | null
-          end_time?: string
-          id?: string
-          registration_count?: number | null
-          start_time?: string
-          status?: string
-          title?: string
-          type?: string
-          updated_at?: string | null
-          venue_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -122,6 +113,7 @@ export type Database = {
           id: string
           linkedin_url: string | null
           name: string
+          phone: string | null
           role: string
           updated_at: string | null
         }
@@ -137,6 +129,7 @@ export type Database = {
           id?: string
           linkedin_url?: string | null
           name: string
+          phone?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -152,6 +145,7 @@ export type Database = {
           id?: string
           linkedin_url?: string | null
           name?: string
+          phone?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -164,7 +158,7 @@ export type Database = {
           created_at: string | null
           id: string
           maps_url: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at: string | null
         }
         Insert: {
@@ -173,7 +167,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Update: {
@@ -182,7 +176,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name?: string
+          name?: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Relationships: []
@@ -192,18 +186,21 @@ export type Database = {
           assigned_at: string | null
           id: string
           shift_id: string | null
+          status: string
           volunteer_id: string | null
         }
         Insert: {
           assigned_at?: string | null
           id?: string
           shift_id?: string | null
+          status?: string
           volunteer_id?: string | null
         }
         Update: {
           assigned_at?: string | null
           id?: string
           shift_id?: string | null
+          status?: string
           volunteer_id?: string | null
         }
         Relationships: [
@@ -230,8 +227,8 @@ export type Database = {
           end_time: string
           filled_slots: number | null
           id: string
-          location: string
-          role: string
+          location: Database["public"]["Enums"]["venue_name"]
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -241,8 +238,8 @@ export type Database = {
           end_time: string
           filled_slots?: number | null
           id?: string
-          location: string
-          role: string
+          location: Database["public"]["Enums"]["venue_name"]
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -252,8 +249,8 @@ export type Database = {
           end_time?: string
           filled_slots?: number | null
           id?: string
-          location?: string
-          role?: string
+          location?: Database["public"]["Enums"]["venue_name"]
+          role?: Database["public"]["Enums"]["shift_role"]
           start_time?: string
           total_slots?: number
         }
@@ -302,10 +299,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_event_admin: { Args: never; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      shift_role:
+        | "ALL DAY - LOCATION CAPTAIN"
+        | "Building Runner"
+        | "Room Runner"
+        | "Volunteer Hub / Door Monitor"
+      venue_name:
+        | "Boulder Associates"
+        | "Boulder Public Library"
+        | "Brand Studios"
+        | "Canyon Center"
+        | "Rosetta Hall"
+        | "SOVRN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -431,7 +439,26 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  graphql_public: {
     Enums: {},
   },
+  public: {
+    Enums: {
+      shift_role: [
+        "ALL DAY - LOCATION CAPTAIN",
+        "Building Runner",
+        "Room Runner",
+        "Volunteer Hub / Door Monitor",
+      ],
+      venue_name: [
+        "Boulder Associates",
+        "Boulder Public Library",
+        "Brand Studios",
+        "Canyon Center",
+        "Rosetta Hall",
+        "SOVRN",
+      ],
+    },
+  },
 } as const
+
