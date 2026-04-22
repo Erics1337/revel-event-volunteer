@@ -109,6 +109,7 @@ export default function AdminDashboard() {
             <Link href="/admin" className="text-teal font-medium">Dashboard</Link>
             <Link href="/admin/users" className="text-gray-text hover:text-teal transition-colors">Users</Link>
             <Link href="/admin/volunteers" className="text-gray-text hover:text-teal transition-colors">Volunteers</Link>
+            <Link href="/admin/shifts" className="text-gray-text hover:text-teal transition-colors">Shifts</Link>
             <Link href="/profile" className="text-gray-text hover:text-teal transition-colors">Profile</Link>
           </nav>
         </div>

@@ -75,10 +75,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from auth pages
-  if (user && request.nextUrl.pathname.startsWith('/auth')) {
+  // Redirect authenticated users away from auth pages, but NEVER interfere
+  // with the OAuth/magic-link callback handlers — those must always run so
+  // they can complete the session exchange and surface any errors.
+  const pathname = request.nextUrl.pathname
+  const isAuthCallback =
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/auth/confirm') ||
+    pathname.startsWith('/auth/auth-code-error')
+
+  if (user && pathname.startsWith('/auth') && !isAuthCallback) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 

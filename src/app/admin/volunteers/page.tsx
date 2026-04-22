@@ -278,6 +278,7 @@ export default function AdminVolunteersPage() {
             <Link href="/admin" className="text-gray-text hover:text-teal transition-colors">Dashboard</Link>
             <Link href="/admin/users" className="text-gray-text hover:text-teal transition-colors">Users</Link>
             <Link href="/admin/volunteers" className="text-teal font-medium">Volunteers</Link>
+            <Link href="/admin/shifts" className="text-gray-text hover:text-teal transition-colors">Shifts</Link>
             <Link href="/profile" className="text-gray-text hover:text-teal transition-colors">Profile</Link>
           </nav>
         </div>
