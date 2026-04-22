@@ -7,7 +7,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import bswHeroImage from '../../public/bsw-img-1.png'
 import bswTeamImage from '../../public/bsw-img-2.png'
 import bswWayfindingImage from '../../public/bsw-img-3.png'
-import bswMerchImage from '../../public/bsw-img-2.png'
+import bswMerchImage from '../../public/bsw-img-4.png'
 import bswLogo from '../../public/bsw-logo-BUCTZ2oQ.png'
 
 const BRAND_GRADIENT = 'linear-gradient(135deg, #2B8A8F 0%, #F5A623 60%, #F58220 100%)'
