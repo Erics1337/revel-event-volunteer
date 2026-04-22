@@ -8,7 +8,7 @@ const MY_AVAILABILITY = ['2026-05-04', '2026-05-05', '2026-05-07']
 const VOLUNTEER_LINKS = [
   { href: '/volunteers', label: 'Open Shifts' },
   { href: '/schedule', label: 'My Schedule' },
-  { href: '/profile', label: 'My Availability' },
+  { href: '/volunteers/my-availability', label: 'My Availability' },
   { href: '/profile', label: 'My Profile' },
 ]
 
@@ -384,7 +384,7 @@ export default function VolunteerPortal() {
               </div>
 
               <Link
-                href="/profile"
+                href="/volunteers/signup"
                 className="inline-flex w-full justify-center rounded-sm bg-[#ef8f3d] px-6 py-3 text-base font-semibold text-white shadow-[4px_4px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
                 onClick={dismissRecruitModal}
               >

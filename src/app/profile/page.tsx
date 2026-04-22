@@ -4,14 +4,17 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 
+interface UserProfile {
+  name: string
+  email: string
   avatar_url: string | null
   headline: string | null
   bio: string | null
   linkedin_url: string | null
   email_public: boolean
   role: string
-  badges: string[]
-  created_at: string
+  badges: string[] | null
+  created_at: string | null
 }
 
 export default function ProfilePage() {
@@ -156,7 +159,7 @@ export default function ProfilePage() {
                 <p className="text-gray-text">{profile.email}</p>
                 <div className="flex gap-2 items-center mt-2">
                   <span className="capitalize badge-default">{profile.role}</span>
-                  {profile.badges.map((badge) => (
+                  {(profile.badges ?? []).map((badge) => (
                     <span key={badge} className="capitalize badge-featured">
                       {badge}
                     </span>
@@ -301,7 +304,7 @@ export default function ProfilePage() {
               <div>
                 <h3 className="mb-2 text-lg font-semibold text-charcoal">Account</h3>
                 <p className="text-gray-text">
-                  Member since {formatDate(profile.created_at)}
+                  Member since {profile.created_at ? formatDate(profile.created_at) : '—'}
                 </p>
                 <p className="text-gray-text">
                   Role: <span className="capitalize">{profile.role}</span>
