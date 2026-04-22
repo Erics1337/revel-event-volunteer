@@ -9,7 +9,7 @@ interface Volunteer {
   phone: string
   availability: string[]
   shift_count: number
-  status: 'confirmed' | 'pending'
+  status: string
 }
 
 interface VolunteerTableProps {

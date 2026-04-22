@@ -122,8 +122,8 @@ export default function ProfilePage() {
           
           <nav className="flex gap-6 items-center">
             <Link href="/" className="transition-colors text-gray-text hover:text-teal">Home</Link>
-            <Link href="/events" className="transition-colors text-gray-text hover:text-teal">Events</Link>
-            <Link href="/schedule" className="transition-colors text-gray-text hover:text-teal">Schedule</Link>
+            <Link href="/events" className="transition-colors text-gray-text hover:text-teal">Shifts</Link>
+            <Link href="/schedule" className="transition-colors text-gray-text hover:text-teal">My Schedule</Link>
             <Link href="/profile" className="font-medium text-teal">Profile</Link>
           </nav>
         </div>
@@ -340,7 +340,7 @@ export default function ProfilePage() {
           <div className="card">
             <h3 className="mb-3 text-lg font-semibold text-charcoal">My Schedule</h3>
             <p className="mb-4 text-gray-text">
-              View and manage your registered events
+              View and manage the volunteer shifts you’ve signed up for.
             </p>
             <Link
               href="/schedule"
@@ -351,15 +351,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h3 className="mb-3 text-lg font-semibold text-charcoal">Browse Events</h3>
+            <h3 className="mb-3 text-lg font-semibold text-charcoal">Browse Open Shifts</h3>
             <p className="mb-4 text-gray-text">
-              Discover and register for new events
+              Find an open slot that fits your schedule and sign up.
             </p>
             <Link
               href="/events"
               className="font-medium text-teal hover:underline"
             >
-              Browse Events →
+              Browse Shifts →
             </Link>
           </div>
         </div>

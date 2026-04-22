@@ -1,3 +1,5 @@
+export type AssignmentStatus = 'requested' | 'assigned' | 'cancelled'
+
 export interface VolunteerShift {
   id: string
   role: string
@@ -25,6 +27,7 @@ export interface ShiftAssignment {
   shift_id: string
   volunteer_id: string
   assigned_at: string | null
+  status: AssignmentStatus
   volunteer: {
     id: string
     name: string

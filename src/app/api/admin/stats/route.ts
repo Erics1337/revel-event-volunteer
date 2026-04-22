@@ -5,26 +5,26 @@ import { Database } from '@/lib/supabase/database.types'
 
 type UserRoleLookup = Pick<Database['public']['Tables']['users']['Row'], 'role'>
 
-interface RegistrationDayRow {
-  sessions: {
-    day: string
-  } | null
-}
-
-interface VenueUtilizationRow {
-  venues: {
-    name: string
-  } | null
-  registration_count: number
+interface ShiftRow {
+  id: string
+  role: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+  total_slots: number
+  filled_slots: number
 }
 
 export async function GET() {
   const supabase = await createClient()
 
   try {
-    // Get current user and verify admin role
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -39,75 +39,91 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    // Get dashboard stats
     const [
       { count: totalUsers },
-      { count: totalSessions },
-      { count: totalRegistrations },
-      { data: popularSessions },
-      { data: venueUtilization },
+      { count: totalShifts },
+      { count: totalVolunteers },
+      { count: confirmedVolunteers },
+      { count: totalAssignments },
+      { data: shiftsData },
     ] = await Promise.all([
       supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('sessions').select('*', { count: 'exact', head: true }),
-      supabase.from('registrations').select('*', { count: 'exact', head: true }),
+      supabase.from('volunteer_shifts').select('*', { count: 'exact', head: true }),
+      supabase.from('volunteers').select('*', { count: 'exact', head: true }),
       supabase
-        .from('sessions')
-        .select('id, title, registration_count')
-        .eq('status', 'published')
-        .order('registration_count', { ascending: false })
-        .limit(10),
+        .from('volunteers')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'confirmed'),
       supabase
-        .from('sessions')
-        .select(`
-          venues!inner (
-            name
-          ),
-          registration_count
-        `)
-        .eq('status', 'published'),
+        .from('volunteer_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'assigned'),
+      supabase
+        .from('volunteer_shifts')
+        .select('id, role, day, start_time, end_time, location, total_slots, filled_slots'),
     ])
 
-    // Calculate registrations by day (May 4-8, 2026)
-    const { data: registrationsByDay } = await supabase
-      .from('registrations')
-      .select(`
-        registered_at,
-        sessions!inner (
-          day
-        )
-      `)
+    const shifts = (shiftsData as ShiftRow[] | null) ?? []
 
-    const dayStats = (registrationsByDay as RegistrationDayRow[] | null)?.reduce<Record<string, number>>((acc, reg) => {
-      const day = reg.sessions?.day
-      if (!day) {
-        return acc
-      }
-      acc[day] = (acc[day] || 0) + 1
-      return acc
-    }, {}) || {}
+    const totalSlots = shifts.reduce((sum, s) => sum + (s.total_slots ?? 0), 0)
+    const filledSlots = shifts.reduce((sum, s) => sum + (s.filled_slots ?? 0), 0)
+    const openSlots = Math.max(totalSlots - filledSlots, 0)
+    const fillRate = totalSlots > 0 ? filledSlots / totalSlots : 0
 
-    // Calculate venue utilization
-    const venueStats = (venueUtilization as VenueUtilizationRow[] | null)?.reduce<Record<string, { name: string; sessions: number; totalRegistrations: number }>>((acc, session) => {
-      const venueName = session.venues?.name
-      if (!venueName) {
-        return acc
-      }
-      if (!acc[venueName]) {
-        acc[venueName] = { name: venueName, sessions: 0, totalRegistrations: 0 }
-      }
-      acc[venueName].sessions += 1
-      acc[venueName].totalRegistrations += session.registration_count
+    // Shifts by day
+    const shiftsByDay = shifts.reduce<Record<string, { total: number; filled: number }>>((acc, s) => {
+      if (!s.day) return acc
+      if (!acc[s.day]) acc[s.day] = { total: 0, filled: 0 }
+      acc[s.day].total += s.total_slots ?? 0
+      acc[s.day].filled += s.filled_slots ?? 0
       return acc
-    }, {}) || {}
+    }, {})
+
+    // Shifts most in need of volunteers (largest unfilled gap)
+    const understaffedShifts = [...shifts]
+      .map((s) => ({
+        id: s.id,
+        role: s.role,
+        day: s.day,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        location: s.location,
+        total_slots: s.total_slots,
+        filled_slots: s.filled_slots,
+        unfilled: Math.max((s.total_slots ?? 0) - (s.filled_slots ?? 0), 0),
+      }))
+      .filter((s) => s.unfilled > 0)
+      .sort((a, b) => b.unfilled - a.unfilled)
+      .slice(0, 10)
+
+    // Location utilization (venue-equivalent for shifts)
+    const locationStats = shifts.reduce<Record<string, { name: string; shifts: number; totalSlots: number; filledSlots: number }>>(
+      (acc, s) => {
+        const name = s.location
+        if (!name) return acc
+        if (!acc[name]) acc[name] = { name, shifts: 0, totalSlots: 0, filledSlots: 0 }
+        acc[name].shifts += 1
+        acc[name].totalSlots += s.total_slots ?? 0
+        acc[name].filledSlots += s.filled_slots ?? 0
+        return acc
+      },
+      {}
+    )
 
     return NextResponse.json({
       stats: {
         total_users: totalUsers || 0,
-        total_sessions: totalSessions || 0,
-        total_registrations: totalRegistrations || 0,
-        popular_sessions: popularSessions || [],
-        registrations_by_day: dayStats,
-        venue_utilization: Object.values(venueStats),
+        total_shifts: totalShifts || 0,
+        total_volunteers: totalVolunteers || 0,
+        confirmed_volunteers: confirmedVolunteers || 0,
+        total_assignments: totalAssignments || 0,
+        total_slots: totalSlots,
+        filled_slots: filledSlots,
+        open_slots: openSlots,
+        fill_rate: fillRate,
+        shifts_by_day: shiftsByDay,
+        understaffed_shifts: understaffedShifts,
+        location_utilization: Object.values(locationStats),
       },
     })
   } catch {

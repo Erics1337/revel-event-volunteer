@@ -100,101 +100,6 @@ export type Database = {
           },
         ]
       }
-      registrations: {
-        Row: {
-          id: string
-          registered_at: string | null
-          session_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          id?: string
-          registered_at?: string | null
-          session_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          id?: string
-          registered_at?: string | null
-          session_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registrations_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registrations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sessions: {
-        Row: {
-          attachments: Json | null
-          category: string
-          created_at: string | null
-          day: string
-          description: string | null
-          end_time: string
-          id: string
-          registration_count: number | null
-          start_time: string
-          status: string
-          title: string
-          type: string
-          updated_at: string | null
-          venue_id: string | null
-        }
-        Insert: {
-          attachments?: Json | null
-          category: string
-          created_at?: string | null
-          day: string
-          description?: string | null
-          end_time: string
-          id?: string
-          registration_count?: number | null
-          start_time: string
-          status?: string
-          title: string
-          type: string
-          updated_at?: string | null
-          venue_id?: string | null
-        }
-        Update: {
-          attachments?: Json | null
-          category?: string
-          created_at?: string | null
-          day?: string
-          description?: string | null
-          end_time?: string
-          id?: string
-          registration_count?: number | null
-          start_time?: string
-          status?: string
-          title?: string
-          type?: string
-          updated_at?: string | null
-          venue_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       users: {
         Row: {
           avatar_url: string | null
@@ -281,18 +186,21 @@ export type Database = {
           assigned_at: string | null
           id: string
           shift_id: string | null
+          status: string
           volunteer_id: string | null
         }
         Insert: {
           assigned_at?: string | null
           id?: string
           shift_id?: string | null
+          status?: string
           volunteer_id?: string | null
         }
         Update: {
           assigned_at?: string | null
           id?: string
           shift_id?: string | null
+          status?: string
           volunteer_id?: string | null
         }
         Relationships: [

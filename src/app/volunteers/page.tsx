@@ -1,40 +1,29 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-
-const MY_AVAILABILITY = ['2026-05-04', '2026-05-05', '2026-05-07']
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/contexts/auth-context'
+import type { AssignmentStatus } from '@/lib/shifts/types'
+import { EVENT_DAYS } from '@/lib/shifts/types'
 
 const VOLUNTEER_LINKS = [
   { href: '/volunteers', label: 'Open Shifts' },
-  { href: '/schedule', label: 'My Schedule' },
-  { href: '/profile', label: 'My Availability' },
+  { href: '/schedule', label: 'My Sign-ups' },
   { href: '/profile', label: 'My Profile' },
-]
+] as const
 
 const OLD_APP_ACCENT_FONT = '"Space Grotesk", Inter, system-ui, -apple-system, sans-serif'
 
 const ROLE_INFO: Record<string, string> = {
-  'Room Runner':
-    "Set up chairs, hang banners, and prep the room before sessions start. You're the reason everything looks right when doors open.",
-  'Registration & Check-In':
-    'Greet attendees, scan tickets, and hand out lanyards. First impression of the whole week, so keep it warm and organized.',
-  'Door Monitor':
-    'Manage crowd flow, direct attendees, and help sessions stay calm and orderly when rooms get busy.',
+  'ALL DAY - LOCATION CAPTAIN':
+    'Own the venue for the day, support volunteers across shifts, and help keep operations calm and coordinated.',
   'Building Runner':
-    'General support across the venue: moving supplies, troubleshooting logistics, and helping wherever things get tight.',
-  'Session Host':
-    "Introduce speakers, manage Q&A, and keep sessions on time. You're the glue between the room and the stage.",
-  'A/V & Tech Support':
-    'Set up mics, projectors, and livestream support. Best for volunteers comfortable with event tech.',
-  Wayfinding:
-    'Help attendees navigate between venues and key checkpoints around Boulder Startup Week.',
-  'Social Media':
-    'Capture highlights, post stories, and help the community see what is happening in real time.',
-  'Venue Setup':
-    'Handle chairs, tables, signage, and finishing touches before doors open.',
-  'Green Room':
-    'Support speakers before they go on and keep the space calm, stocked, and running smoothly.',
+    'Jump in wherever the venue needs support: supplies, logistics, troubleshooting, and fast-moving coordination.',
+  'Room Runner':
+    'Prep rooms, support speakers, and keep sessions running smoothly from setup through reset.',
+  'Volunteer Hub / Door Monitor':
+    'Welcome attendees, direct traffic, and help the venue feel organized, calm, and easy to navigate.',
 }
 
 interface VolunteerShift {
@@ -44,9 +33,26 @@ interface VolunteerShift {
   start_time: string
   end_time: string
   location: string
-  description?: string
   total_slots: number
   filled_slots: number
+}
+
+interface VolunteerAssignment {
+  id: string
+  shift_id: string
+  volunteer_id: string
+  assigned_at: string | null
+  status: AssignmentStatus
+  shift: VolunteerShift | null
+}
+
+interface VolunteerRecord {
+  id: string
+  user_id: string | null
+  phone: string
+  availability: string[]
+  status: string
+  shift_count: number
 }
 
 interface VolunteerShiftApiResponse {
@@ -54,14 +60,22 @@ interface VolunteerShiftApiResponse {
   error?: string
 }
 
+interface VolunteerContextResponse {
+  volunteer?: VolunteerRecord | null
+  assignments?: VolunteerAssignment[]
+  error?: string
+}
+
 export default function VolunteerPortal() {
+  const router = useRouter()
+  const { user, profile, loading: authLoading } = useAuth()
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [loading, setLoading] = useState(true)
+  const [contextLoading, setContextLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState('all')
   const [selectedRole, setSelectedRole] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
-  const [signedUp, setSignedUp] = useState<Set<string>>(new Set())
   const [showRecruitModal, setShowRecruitModal] = useState(() => {
     try {
       return !localStorage.getItem('bsw_recruit_modal_seen')
@@ -69,37 +83,111 @@ export default function VolunteerPortal() {
       return true
     }
   })
+  const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
+  const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
+  const [setupOpen, setSetupOpen] = useState(false)
+  const [setupPhone, setSetupPhone] = useState('')
+  const [setupAvailability, setSetupAvailability] = useState<string[]>([])
+  const [savingSetup, setSavingSetup] = useState(false)
+  const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const loadShifts = useCallback(async () => {
+    const response = await fetch('/api/volunteers/shifts')
+    const payload = (await response.json()) as VolunteerShiftApiResponse
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Failed to load volunteer shifts')
+    }
+
+    setShifts(payload.shifts || [])
+  }, [])
+
+  const loadContext = useCallback(async () => {
+    if (!user) {
+      setVolunteer(null)
+      setAssignments([])
+      setSetupPhone(profile?.phone || '')
+      setSetupAvailability([])
+      setContextLoading(false)
+      return
+    }
+
+    const response = await fetch('/api/volunteers/me')
+    const payload = (await response.json()) as VolunteerContextResponse
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Failed to load your volunteer profile')
+    }
+
+    const nextVolunteer = payload.volunteer ?? null
+    setVolunteer(nextVolunteer)
+    setAssignments(payload.assignments || [])
+    setSetupPhone(nextVolunteer?.phone || profile?.phone || '')
+    setSetupAvailability(nextVolunteer?.availability || [])
+    setContextLoading(false)
+  }, [user, profile?.phone])
+
+  const refreshPortal = useCallback(async () => {
+    setErrorMessage(null)
+
+    try {
+      await Promise.all([loadShifts(), loadContext()])
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to load volunteer portal'
+      )
+    } finally {
+      setLoading(false)
+      setContextLoading(false)
+    }
+  }, [loadContext, loadShifts])
 
   useEffect(() => {
-    let isMounted = true
-
-    const loadShifts = async () => {
-      try {
-        const response = await fetch('/api/volunteers/shifts')
-        const payload = (await response.json()) as VolunteerShiftApiResponse
-
-        if (!response.ok) {
-          throw new Error(payload.error || 'Failed to load volunteer shifts')
-        }
-
-        if (isMounted) {
-          setShifts(payload.shifts || [])
-        }
-      } catch (error) {
-        console.error('Error fetching shifts:', error)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void loadShifts()
+    const timeoutId = window.setTimeout(() => {
+      void refreshPortal()
+    }, 0)
 
     return () => {
-      isMounted = false
+      window.clearTimeout(timeoutId)
     }
-  }, [])
+  }, [refreshPortal])
+
+  const activeAssignments = useMemo(
+    () => assignments.filter((assignment) => assignment.status !== 'cancelled'),
+    [assignments]
+  )
+
+  const assignmentByShiftId = useMemo(
+    () => new Map(activeAssignments.map((assignment) => [assignment.shift_id, assignment])),
+    [activeAssignments]
+  )
+
+  const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
+  const hasVolunteerSetup = Boolean(volunteer?.phone && availability.length > 0)
+  const showSetupPanel = Boolean(user && (setupOpen || !hasVolunteerSetup))
+  const hasAvailabilityOverlap = shifts.some((shift) => availability.includes(shift.day))
+  const showAvailabilityOnly =
+    Boolean(user) && onlyMyAvailability && availability.length > 0 && hasAvailabilityOverlap
+
+  const filtered = useMemo(
+    () =>
+      shifts.filter((shift) => {
+        if (showAvailabilityOnly && !availability.includes(shift.day)) return false
+        if (selectedDay !== 'all' && shift.day !== selectedDay) return false
+        if (selectedRole !== 'all' && shift.role !== selectedRole) return false
+        if (selectedLocation !== 'all' && shift.location !== selectedLocation) return false
+        return true
+      }),
+    [availability, selectedDay, selectedLocation, selectedRole, shifts, showAvailabilityOnly]
+  )
+
+  const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
+  const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
+  const availabilityDayLabels = availability
+    .map((day) => formatDayLabel(day).short)
+    .filter(Boolean)
 
   const dayOptions = Array.from(new Set(shifts.map((shift) => shift.day)))
     .sort((a, b) => a.localeCompare(b))
@@ -111,49 +199,12 @@ export default function VolunteerPortal() {
   const roles = ['all', ...new Set(shifts.map((shift) => shift.role))].sort((a, b) =>
     a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b)
   )
-
   const locations = ['all', ...new Set(shifts.map((shift) => shift.location))]
-  const hasAvailabilityOverlap = shifts.some((shift) => MY_AVAILABILITY.includes(shift.day))
-  const showAvailabilityOnly = onlyMyAvailability && hasAvailabilityOverlap
-
-  const filtered = shifts.filter((shift) => {
-    if (showAvailabilityOnly && !MY_AVAILABILITY.includes(shift.day)) {
-      return false
-    }
-    if (selectedDay !== 'all' && shift.day !== selectedDay) {
-      return false
-    }
-    if (selectedRole !== 'all' && shift.role !== selectedRole) {
-      return false
-    }
-    if (selectedLocation !== 'all' && shift.location !== selectedLocation) {
-      return false
-    }
-    return true
-  })
-
-  const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
-  const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
-  const availabilityDayLabels = MY_AVAILABILITY.map(
-    (day) => formatDayLabel(day).short
-  ).filter(Boolean)
 
   const clearFilters = () => {
     setSelectedDay('all')
     setSelectedRole('all')
     setSelectedLocation('all')
-  }
-
-  const handleSignUp = (shiftId: string, action: 'sign-up' | 'cancel') => {
-    setSignedUp((previous) => {
-      const next = new Set(previous)
-      if (action === 'cancel') {
-        next.delete(shiftId)
-      } else {
-        next.add(shiftId)
-      }
-      return next
-    })
   }
 
   const dismissRecruitModal = () => {
@@ -163,12 +214,134 @@ export default function VolunteerPortal() {
     setShowRecruitModal(false)
   }
 
-  if (loading) {
+  const handleSetupAvailabilityToggle = (day: string) => {
+    setSetupAvailability((current) =>
+      current.includes(day) ? current.filter((value) => value !== day) : [...current, day]
+    )
+  }
+
+  const handleSaveSetup = async () => {
+    setSavingSetup(true)
+    setErrorMessage(null)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/volunteers/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: setupPhone,
+          availability: setupAvailability,
+        }),
+      })
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        volunteer?: VolunteerRecord
+        error?: string
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to save volunteer setup')
+      }
+
+      setVolunteer(payload.volunteer ?? null)
+      setSetupOpen(false)
+      setMessage('Volunteer setup saved. You can request shifts now.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to save volunteer setup')
+    } finally {
+      setSavingSetup(false)
+    }
+  }
+
+  const redirectToSignIn = () => {
+    router.push('/auth/login?redirectTo=/volunteers')
+  }
+
+  const handlePrimaryAction = async (shift: VolunteerShift) => {
+    setErrorMessage(null)
+    setMessage(null)
+
+    if (!user) {
+      redirectToSignIn()
+      return
+    }
+
+    if (!hasVolunteerSetup) {
+      setSetupOpen(true)
+      setErrorMessage('Complete your volunteer setup before requesting a shift.')
+      dismissRecruitModal()
+      return
+    }
+
+    setSubmittingShiftId(shift.id)
+    try {
+      const response = await fetch('/api/volunteers/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shiftId: shift.id }),
+      })
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string }
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to submit volunteer request')
+      }
+
+      await loadContext()
+      setMessage('Request submitted. We saved it to your volunteer portal.')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to submit volunteer request'
+      )
+    } finally {
+      setSubmittingShiftId(null)
+    }
+  }
+
+  const handleCancel = async (shift: VolunteerShift) => {
+    const assignment = assignmentByShiftId.get(shift.id)
+    if (!assignment) return
+
+    setErrorMessage(null)
+    setMessage(null)
+    setSubmittingShiftId(shift.id)
+
+    try {
+      const response = await fetch(
+        `/api/volunteers/requests?shiftId=${encodeURIComponent(shift.id)}`,
+        { method: 'DELETE' }
+      )
+      const payload = (await response.json().catch(() => ({}))) as { error?: string }
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to cancel sign-up')
+      }
+
+      await Promise.all([loadShifts(), loadContext()])
+      setMessage('Sign-up cancelled.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to cancel sign-up')
+    } finally {
+      setSubmittingShiftId(null)
+    }
+  }
+
+  const handleRecruitCta = () => {
+    dismissRecruitModal()
+    if (!user) {
+      redirectToSignIn()
+      return
+    }
+    setSetupOpen(true)
+  }
+
+  if (loading || authLoading || contextLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f6f7f5]">
         <div className="text-center">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#5aaeb3] border-t-transparent" />
-          <p className="text-sm text-[#6f7883]">Loading shifts...</p>
+          <p className="text-sm text-[#6f7883]">Loading volunteer portal...</p>
         </div>
       </div>
     )
@@ -190,43 +363,151 @@ export default function VolunteerPortal() {
             Volunteer at Boulder Startup Week 2026
           </h1>
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
-            {openCount} shifts need you. No sign-up fees. No corporate BS. Just real community work.
+            {openCount} shifts still need coverage. Request a role, save your availability, and keep your volunteer plan in one place.
           </p>
           <button
-            onClick={() => setShowRecruitModal(true)}
+            onClick={handleRecruitCta}
             className="mt-6 inline-flex rounded-sm bg-[#ef8f3d] px-10 py-3 text-base font-semibold text-white shadow-[4px_4px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
           >
-            Become a Volunteer
+            {user ? 'Set up volunteer profile' : 'Sign in to volunteer'}
           </button>
         </div>
       </section>
 
       <main className="mx-auto max-w-4xl px-4 py-4 md:py-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d6eced] bg-[#eef8f8] px-4 py-3">
-          <p className="text-sm text-[#6aa9ae]">
-            {showAvailabilityOnly ? (
-              <>
-                Showing shifts on your available days:{' '}
-                <span className="font-semibold">{availabilityDayLabels.join(', ')}</span>
-              </>
-            ) : onlyMyAvailability ? (
-              'Showing all shifts. Your saved availability does not match the current shift dates.'
-            ) : (
-              'Showing all shifts'
-            )}
-          </p>
-          <div className="flex items-center gap-4 text-sm">
-            <button
-              onClick={() => setOnlyMyAvailability((current) => !current)}
-              className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
-            >
-              {onlyMyAvailability ? 'Show all shifts' : 'Filter to my availability'}
-            </button>
-            <Link href="/profile" className="text-[#6f7883] transition hover:text-[#5aaeb3]">
-              Edit availability →
-            </Link>
+        {message && (
+          <div className="mb-4 rounded-md border border-[#cde7e7] bg-[#eef8f8] px-4 py-3 text-sm text-[#2f6d71]">
+            {message}
           </div>
-        </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-4 rounded-md border border-[#f0b8b1] bg-[#fff6f4] px-4 py-3 text-sm text-[#b45446]">
+            {errorMessage}
+          </div>
+        )}
+
+        {!user ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#eadfa2] bg-[#fff9df] px-4 py-3">
+            <p className="text-sm text-[#776c2d]">
+              Browse every shift now. Sign in when you are ready to request one.
+            </p>
+            <button
+              onClick={redirectToSignIn}
+              className="text-sm font-semibold text-[#5a7e7b] underline underline-offset-2"
+            >
+              Sign in →
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d6eced] bg-[#eef8f8] px-4 py-3">
+            <p className="text-sm text-[#6aa9ae]">
+              {showAvailabilityOnly ? (
+                <>
+                  Showing shifts on your available days:{' '}
+                  <span className="font-semibold">{availabilityDayLabels.join(', ')}</span>
+                </>
+              ) : availability.length === 0 ? (
+                'Add your availability below to filter shifts to the days you can help.'
+              ) : onlyMyAvailability ? (
+                'Showing all shifts. Your saved availability does not match the current shift dates.'
+              ) : (
+                'Showing all shifts'
+              )}
+            </p>
+            <div className="flex items-center gap-4 text-sm shrink-0">
+              <button
+                onClick={() => setOnlyMyAvailability((current) => !current)}
+                className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+                disabled={availability.length === 0}
+              >
+                {onlyMyAvailability ? 'Show all shifts' : 'Filter to my availability'}
+              </button>
+              <button
+                onClick={() => setSetupOpen((current) => !current)}
+                className="text-[#6f7883] transition hover:text-[#5aaeb3]"
+              >
+                {showSetupPanel ? 'Hide volunteer settings' : 'Edit volunteer settings'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showSetupPanel && (
+          <section className="mb-4 rounded-lg border border-[#e6e8eb] bg-white p-5 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2
+                  className="text-2xl font-semibold text-[#3f4a56]"
+                  style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+                >
+                  Volunteer setup
+                </h2>
+                <p className="mt-1 text-sm text-[#6f7883]">
+                  Save your phone number and the days you can help so shift requests line up with your availability.
+                </p>
+              </div>
+              {hasVolunteerSetup && (
+                <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-xs font-semibold text-[#6aa9ae]">
+                  Active volunteer
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[280px_1fr]">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                  Phone
+                </span>
+                <input
+                  type="tel"
+                  value={setupPhone}
+                  onChange={(event) => setSetupPhone(event.target.value)}
+                  className="h-10 rounded-sm border border-[#d8dde3] bg-white px-4 text-sm text-[#505966] outline-none transition focus:border-[#6aa9ae]"
+                  placeholder="(555) 123-4567"
+                />
+              </label>
+
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                  Availability
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {EVENT_DAYS.map((day) => {
+                    const active = setupAvailability.includes(day.date)
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        onClick={() => handleSetupAvailabilityToggle(day.date)}
+                        className={`rounded-pill border px-3 py-1.5 text-sm font-medium transition ${
+                          active
+                            ? 'border-[#6aa9ae] bg-[#6aa9ae] text-white'
+                            : 'border-[#d8dde3] text-[#505966] hover:border-[#6aa9ae] hover:text-[#6aa9ae]'
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleSaveSetup}
+                disabled={savingSetup}
+                className="rounded-sm bg-[#ef8f3d] px-5 py-2.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[1px_1px_0_rgba(26,26,26,0.85)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingSetup ? 'Saving...' : hasVolunteerSetup ? 'Save settings' : 'Become a volunteer'}
+              </button>
+              <p className="text-sm text-[#6f7883]">
+                Your phone is used for reminders and day-of coordination only.
+              </p>
+            </div>
+          </section>
+        )}
 
         <div className="rounded-md border border-[#e6e8eb] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -234,10 +515,7 @@ export default function VolunteerPortal() {
               label="Day"
               value={selectedDay}
               onChange={setSelectedDay}
-              options={[
-                { value: 'all', label: 'All Days' },
-                ...dayOptions,
-              ]}
+              options={[{ value: 'all', label: 'All Days' }, ...dayOptions]}
             />
             <FilterSelect
               label="Role"
@@ -288,15 +566,17 @@ export default function VolunteerPortal() {
             </h2>
             <div className="rounded-lg border border-[#f0b8b1] bg-[#fff6f4] p-3 sm:p-4">
               <p className="mb-3 text-xs font-semibold text-[#ef8a7f]">
-                These shifts have zero volunteers. They need you most.
+                These shifts have zero assigned volunteers. They need coverage first.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {urgentShifts.map((shift) => (
                   <ShiftCard
                     key={shift.id}
                     shift={shift}
-                    isSignedUp={signedUp.has(shift.id)}
-                    onSignUp={handleSignUp}
+                    relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                    submitting={submittingShiftId === shift.id}
+                    onRequest={() => handlePrimaryAction(shift)}
+                    onCancel={() => handleCancel(shift)}
                   />
                 ))}
               </div>
@@ -310,8 +590,10 @@ export default function VolunteerPortal() {
               <ShiftCard
                 key={shift.id}
                 shift={shift}
-                isSignedUp={signedUp.has(shift.id)}
-                onSignUp={handleSignUp}
+                relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                submitting={submittingShiftId === shift.id}
+                onRequest={() => handlePrimaryAction(shift)}
+                onCancel={() => handleCancel(shift)}
               />
             ))}
           </div>
@@ -325,7 +607,7 @@ export default function VolunteerPortal() {
               >
                 Clear filters
               </button>
-              {onlyMyAvailability && (
+              {onlyMyAvailability && availability.length > 0 && (
                 <button
                   onClick={() => setOnlyMyAvailability(false)}
                   className="text-sm text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
@@ -359,11 +641,14 @@ export default function VolunteerPortal() {
               >
                 <CloseIcon />
               </button>
-              <h2 className="text-3xl font-bold text-white" style={{ fontFamily: OLD_APP_ACCENT_FONT }}>
+              <h2
+                className="text-3xl font-bold text-white"
+                style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+              >
                 Make Boulder Startup Week happen.
               </h2>
               <p className="mt-2 text-sm leading-6 text-white/95">
-                Volunteers are the backbone of Boulder Startup Week. Be one of the people who makes the week feel welcoming, organized, and alive.
+                Save your availability, request the shifts that fit, and keep your volunteer plan in one place.
               </p>
             </div>
 
@@ -371,7 +656,7 @@ export default function VolunteerPortal() {
               <div className="flex flex-col gap-2 text-sm text-[#6f7883]">
                 <p className="font-semibold text-[#3f4a56]">Why volunteer?</p>
                 {[
-                  "Meet Boulder founders, builders, and community organizers",
+                  'Meet Boulder founders, builders, and community organizers',
                   'Get a behind-the-scenes role in making the week run smoothly',
                   'Choose shifts that fit your schedule',
                   'Help create a genuinely community-owned event',
@@ -383,13 +668,12 @@ export default function VolunteerPortal() {
                 ))}
               </div>
 
-              <Link
-                href="/profile"
+              <button
+                onClick={handleRecruitCta}
                 className="inline-flex w-full justify-center rounded-sm bg-[#ef8f3d] px-6 py-3 text-base font-semibold text-white shadow-[4px_4px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
-                onClick={dismissRecruitModal}
               >
-                Become a Volunteer
-              </Link>
+                {user ? 'Open volunteer setup' : 'Sign in to volunteer'}
+              </button>
 
               <button
                 onClick={dismissRecruitModal}
@@ -473,12 +757,16 @@ function FilterSelect({
 
 function ShiftCard({
   shift,
-  isSignedUp,
-  onSignUp,
+  relationshipStatus,
+  submitting,
+  onRequest,
+  onCancel,
 }: {
   shift: VolunteerShift
-  isSignedUp: boolean
-  onSignUp: (id: string, action: 'sign-up' | 'cancel') => void
+  relationshipStatus: AssignmentStatus | null
+  submitting: boolean
+  onRequest: () => void
+  onCancel: () => void
 }) {
   const [showRoleInfo, setShowRoleInfo] = useState(false)
 
@@ -488,9 +776,12 @@ function ShiftCard({
   const almostFull = !full && pct >= 80
   const roleDescription = ROLE_INFO[shift.role]
   const description =
-    shift.description ||
     roleDescription ||
     'Support the volunteer team and help this part of Boulder Startup Week run smoothly.'
+
+  const isRequested = relationshipStatus === 'requested'
+  const isAssigned = relationshipStatus === 'assigned'
+  const canRequest = !full && !isRequested && !isAssigned
 
   return (
     <article className="rounded-xl border border-[#e7ebef] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
@@ -528,11 +819,15 @@ function ShiftCard({
           )}
         </div>
 
-        {isSignedUp && (
+        {isAssigned ? (
           <span className="rounded-full bg-[#6aa9ae] px-3 py-1 text-xs font-semibold text-white">
-            Signed up ✓
+            Assigned
           </span>
-        )}
+        ) : isRequested ? (
+          <span className="rounded-full bg-[#fff1dc] px-3 py-1 text-xs font-semibold text-[#ef8f3d]">
+            Request submitted
+          </span>
+        ) : null}
       </div>
 
       <p className="mt-4 text-[15px] leading-7 text-[#6f7883]">{description}</p>
@@ -578,24 +873,29 @@ function ShiftCard({
       </div>
 
       <div className="mt-4 border-t border-[#eceff2] pt-3">
-        {isSignedUp ? (
+        {isRequested || isAssigned ? (
           <button
-            onClick={() => onSignUp(shift.id, 'cancel')}
-            className="text-sm font-medium text-[#ee7666] transition hover:underline"
+            onClick={onCancel}
+            disabled={submitting}
+            className="text-sm font-medium text-[#ee7666] transition hover:underline disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Cancel sign-up
+            {submitting
+              ? 'Cancelling...'
+              : isRequested
+                ? 'Cancel request'
+                : 'Cancel sign-up'}
           </button>
         ) : (
           <button
-            onClick={() => onSignUp(shift.id, 'sign-up')}
-            disabled={full}
+            onClick={onRequest}
+            disabled={submitting || !canRequest}
             className={`rounded-sm border-2 px-5 py-2 text-sm font-semibold transition ${
-              full
-                ? 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
-                : 'border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
+              canRequest
+                ? 'border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
+                : 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
             }`}
           >
-            {full ? 'Full' : 'Sign up'}
+            {submitting ? 'Submitting...' : full ? 'Full' : 'Request to volunteer'}
           </button>
         )}
       </div>
@@ -620,50 +920,52 @@ function formatDayLabel(day: string) {
   }
 }
 
-function formatTimeLabel(value: string) {
-  if (/^\d{2}:\d{2}$/.test(value)) {
-    return value
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-
-  return parsed.toLocaleTimeString('en-US', {
-    hour: '2-digit',
+function formatTimeLabel(time: string) {
+  const [hours, minutes] = time.slice(0, 5).split(':')
+  const date = new Date()
+  date.setHours(Number(hours), Number(minutes), 0, 0)
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
-    hour12: false,
   })
 }
 
 function ClockIcon() {
   return (
-    <svg className="h-4 w-4 flex-shrink-0 text-[#6aa9ae]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <circle cx="12" cy="12" r="10" strokeWidth="2" />
-      <path strokeLinecap="round" d="M12 6v6l4 2" strokeWidth="2" />
+    <svg className="h-4 w-4 text-[#7bb8bc]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M12 8v5l3 2m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
   )
 }
 
 function PinIcon() {
   return (
-    <svg className="h-4 w-4 flex-shrink-0 text-[#6aa9ae]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="h-4 w-4 text-[#7bb8bc]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="2"
-        d="M17.657 16.657 13.414 20.9a1.998 1.998 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0Z"
+        strokeWidth={1.8}
+        d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"
       />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+      />
     </svg>
   )
 }
 
 function CloseIcon() {
   return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

@@ -26,6 +26,7 @@ export async function GET() {
       shift_id,
       volunteer_id,
       assigned_at,
+      status,
       volunteers (
         id,
         phone,
@@ -37,6 +38,7 @@ export async function GET() {
         )
       )
     `)
+    .eq('status', 'assigned')
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -50,6 +52,7 @@ export async function GET() {
       shift_id: a.shift_id,
       volunteer_id: a.volunteer_id,
       assigned_at: a.assigned_at,
+      status: a.status,
       volunteer: volunteer
         ? {
             id: volunteer.id,

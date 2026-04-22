@@ -41,6 +41,7 @@ export async function POST(request: Request) {
           .from('volunteer_assignments')
           .select('volunteer_id')
           .in('shift_id', filters.shiftIds)
+          .eq('status', 'assigned')
         
         if (assignments) {
           targetVolunteerIds = assignments.map(a => a.volunteer_id)
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No volunteers found matching criteria' }, { status: 400 })
     }
 
-    const result = await sendBulkMessage(targetVolunteerIds, subject, message, user.id)
+    const result = await sendBulkMessage(targetVolunteerIds, subject, message)
 
     return NextResponse.json({
       success: true,

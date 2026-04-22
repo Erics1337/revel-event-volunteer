@@ -19,6 +19,7 @@ interface Shift {
 
 interface Volunteer {
   id: string
+  user_id: string | null
   name: string
   email: string
 }
@@ -46,6 +47,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
     .from('volunteers')
     .select(`
       id,
+      user_id,
       user:users(name, email)
     `)
     .eq('id', volunteerId)
@@ -64,6 +66,10 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
   const volunteer = volunteerData as any
   const user = volunteer.user as any
 
+  if (!volunteer.user_id) {
+    throw new Error('Volunteer is missing a linked user record')
+  }
+
   const template = volunteerConfirmationTemplate(shift as Shift, {
     name: user?.name || 'Volunteer',
     email: user?.email || '',
@@ -71,7 +77,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
 
   const { data: notification } = await notificationsTable(supabase)
     .insert({
-      user_id: volunteerId,
+      user_id: volunteer.user_id,
       type: 'volunteer_confirmation',
       subject: template.subject,
       body: template.html,
@@ -91,9 +97,11 @@ export async function queueReminders24h(): Promise<Notification[]> {
     .select(`
       volunteer_id,
       shift_id,
-      volunteer:volunteers(id, user:users(name, email)),
+      status,
+      volunteer:volunteers(id, user_id, user:users(name, email)),
       shift:volunteer_shifts(id, role, day, start_time, end_time, location)
     `)
+    .eq('status', 'assigned')
     .not('volunteer', 'is', null)
     .not('shift', 'is', null)
 
@@ -109,16 +117,19 @@ export async function queueReminders24h(): Promise<Notification[]> {
     const volunteerUser = assignmentAny.volunteer.user as any
     const volunteer: Volunteer = {
       id: assignmentAny.volunteer.id,
+      user_id: assignmentAny.volunteer.user_id ?? null,
       name: volunteerUser?.name || 'Volunteer',
       email: volunteerUser?.email || ''
     }
 
+    if (!volunteer.user_id) continue
+
     const { data: existing } = await notificationsTable(supabase)
       .select('id')
       .eq('shift_id', shift.id)
-      .eq('user_id', volunteer.id)
+      .eq('user_id', volunteer.user_id)
       .eq('type', 'reminder_24h')
-      .single()
+      .maybeSingle()
 
     if (existing) continue
 
@@ -126,7 +137,7 @@ export async function queueReminders24h(): Promise<Notification[]> {
 
     const { data: notification } = await notificationsTable(supabase)
       .insert({
-        user_id: volunteer.id,
+        user_id: volunteer.user_id,
         type: 'reminder_24h',
         subject: template.subject,
         body: template.html,
@@ -149,9 +160,11 @@ export async function queueReminders1h(): Promise<Notification[]> {
     .select(`
       volunteer_id,
       shift_id,
-      volunteer:volunteers(id, user:users(name, email)),
+      status,
+      volunteer:volunteers(id, user_id, user:users(name, email)),
       shift:volunteer_shifts(id, role, day, start_time, end_time, location)
     `)
+    .eq('status', 'assigned')
     .not('volunteer', 'is', null)
     .not('shift', 'is', null)
 
@@ -167,16 +180,19 @@ export async function queueReminders1h(): Promise<Notification[]> {
     const volunteerUser = assignmentAny.volunteer.user as any
     const volunteer: Volunteer = {
       id: assignmentAny.volunteer.id,
+      user_id: assignmentAny.volunteer.user_id ?? null,
       name: volunteerUser?.name || 'Volunteer',
       email: volunteerUser?.email || ''
     }
 
+    if (!volunteer.user_id) continue
+
     const { data: existing } = await notificationsTable(supabase)
       .select('id')
       .eq('shift_id', shift.id)
-      .eq('user_id', volunteer.id)
+      .eq('user_id', volunteer.user_id)
       .eq('type', 'reminder_1h')
-      .single()
+      .maybeSingle()
 
     if (existing) continue
 
@@ -184,7 +200,7 @@ export async function queueReminders1h(): Promise<Notification[]> {
 
     const { data: notification } = await notificationsTable(supabase)
       .insert({
-        user_id: volunteer.id,
+        user_id: volunteer.user_id,
         type: 'reminder_1h',
         subject: template.subject,
         body: template.html,
@@ -244,8 +260,7 @@ export async function sendPendingNotifications() {
 export async function sendBulkMessage(
   volunteerIds: string[],
   subject: string,
-  message: string,
-  _adminId?: string
+  message: string
 ) {
   const supabase = await createClient()
 
@@ -253,9 +268,10 @@ export async function sendBulkMessage(
     .from('volunteers')
     .select(`
       id,
+      user_id,
       user:users(email)
     `)
-    .in('id', volunteerIds)
+    .in('id', [...new Set(volunteerIds)])
 
   if (!volunteers) return { sent: 0, failed: 0 }
 
@@ -266,14 +282,14 @@ export async function sendBulkMessage(
   for (const volunteerData of volunteers) {
     const volunteer = volunteerData as any
     const email = volunteer.user?.email
-    if (!email) {
+    if (!email || !volunteer.user_id) {
       failed++
       continue
     }
 
     const { data: notification } = await notificationsTable(supabase)
       .insert({
-        user_id: volunteer.id,
+        user_id: volunteer.user_id,
         type: 'admin_message',
         subject: template.subject,
         body: template.html,
@@ -303,4 +319,110 @@ export async function sendBulkMessage(
   }
 
   return { sent, failed }
+}
+
+export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('volunteer_assignments')
+    .select(`
+      volunteer_id,
+      shift_id,
+      status,
+      volunteer:volunteers(id, user_id, status, user:users(name, email)),
+      shift:volunteer_shifts(id, role, day, start_time, end_time, location)
+    `)
+    .eq('status', 'assigned')
+    .not('volunteer', 'is', null)
+    .not('shift', 'is', null)
+
+  if (shiftIds && shiftIds.length > 0) {
+    query = query.in('shift_id', shiftIds)
+  }
+
+  const { data: assignments } = await query
+
+  if (!assignments) return { sent: 0, failed: 0, skipped: 0 }
+
+  let sent = 0
+  let failed = 0
+  let skipped = 0
+
+  for (const assignment of assignments) {
+    const assignmentAny = assignment as any
+    if (!assignmentAny.shift || !assignmentAny.volunteer) {
+      skipped++
+      continue
+    }
+
+    if (assignmentAny.volunteer.status !== 'confirmed') {
+      skipped++
+      continue
+    }
+
+    const shift = assignmentAny.shift as Shift
+    const volunteerUser = assignmentAny.volunteer.user as any
+    const volunteer: Volunteer = {
+      id: assignmentAny.volunteer.id,
+      user_id: assignmentAny.volunteer.user_id ?? null,
+      name: volunteerUser?.name || 'Volunteer',
+      email: volunteerUser?.email || '',
+    }
+
+    if (!volunteer.user_id || !volunteer.email) {
+      failed++
+      continue
+    }
+
+    const { data: existing } = await notificationsTable(supabase)
+      .select('id')
+      .eq('shift_id', shift.id)
+      .eq('user_id', volunteer.user_id)
+      .eq('type', 'reminder_24h')
+      .maybeSingle()
+
+    if (existing) {
+      skipped++
+      continue
+    }
+
+    const template = reminder24hTemplate(shift, volunteer)
+
+    const { data: notification } = await notificationsTable(supabase)
+      .insert({
+        user_id: volunteer.user_id,
+        type: 'reminder_24h',
+        subject: template.subject,
+        body: template.html,
+        shift_id: shift.id,
+      })
+      .select()
+      .single()
+
+    if (!notification) {
+      failed++
+      continue
+    }
+
+    const result = await sendEmail({
+      to: volunteer.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    })
+
+    await notificationsTable(supabase)
+      .update({
+        status: result.success ? 'sent' : 'failed',
+        sent_at: result.success ? new Date().toISOString() : null,
+        error_message: result.error || null,
+      })
+      .eq('id', notification.id)
+
+    if (result.success) sent++
+    else failed++
+  }
+
+  return { sent, failed, skipped }
 }

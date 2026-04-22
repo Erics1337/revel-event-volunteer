@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import type { ShiftRole, VenueName } from '@/lib/shifts/types'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -33,18 +34,18 @@ export async function PUT(
   try {
     const body = await request.json()
     const updates: {
-      role?: string
+      role?: ShiftRole
       day?: string
       start_time?: string
       end_time?: string
-      location?: string
+      location?: VenueName
       total_slots?: number
     } = {}
-    if (body.role !== undefined) updates.role = String(body.role)
+    if (body.role !== undefined) updates.role = body.role as ShiftRole
     if (body.day !== undefined) updates.day = String(body.day)
     if (body.start_time !== undefined) updates.start_time = String(body.start_time)
     if (body.end_time !== undefined) updates.end_time = String(body.end_time)
-    if (body.location !== undefined) updates.location = String(body.location)
+    if (body.location !== undefined) updates.location = body.location as VenueName
     if (body.total_slots !== undefined) updates.total_slots = Number(body.total_slots)
 
     if (Object.keys(updates).length === 0) {
