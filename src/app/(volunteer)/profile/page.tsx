@@ -19,17 +19,16 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
-      const updateFormData = async () => {
-        setFormData({
-          name: profile.name || '',
-          headline: profile.headline || '',
-          bio: profile.bio || '',
-          linkedin_url: profile.linkedin_url || '',
-          phone: profile.phone || '',
-          email_public: profile.email_public || false,
-        })
-      }
-      updateFormData()
+      // Keep the editable draft aligned with the loaded profile record.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData({
+        name: profile.name || '',
+        headline: profile.headline || '',
+        bio: profile.bio || '',
+        linkedin_url: profile.linkedin_url || '',
+        phone: profile.phone || '',
+        email_public: profile.email_public || false,
+      })
     }
   }, [profile])
 
@@ -83,14 +82,14 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-light">
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
         <div className="text-center">
-          <p className="mb-4 text-lg text-gray-text">Please sign in to view your profile</p>
+          <p className="mb-4 text-lg text-gray-text">Please sign in to view your profile.</p>
           <Link
-            href="/auth/login"
+            href="/auth/login?redirectTo=/profile"
             className="px-6 py-3 font-medium text-white bg-teal-500 rounded-md transition-colors hover:bg-teal-600"
           >
-            Sign In
+            Sign in
           </Link>
         </div>
       </div>
@@ -99,7 +98,7 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-light">
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
         <div className="text-center">
           <div className="mx-auto mb-4 w-8 h-8 rounded-full border-4 border-teal-500 animate-spin border-t-transparent"></div>
           <p className="text-gray-text">Loading profile...</p>
@@ -109,30 +108,31 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-light">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-border">
-        <div className="flex justify-between items-center px-4 py-4 mx-auto max-w-6xl">
-          <div className="flex gap-2 items-center">
-            <div className="flex justify-center items-center w-8 h-8 bg-teal-500 rounded-full">
-              <span className="text-sm font-bold text-white">R</span>
-            </div>
-            <h1 className="text-xl font-bold text-charcoal">Revel Events</h1>
-          </div>
-          
-          <nav className="flex gap-6 items-center">
-            <Link href="/" className="transition-colors text-gray-text hover:text-teal">Home</Link>
-            <Link href="/events" className="transition-colors text-gray-text hover:text-teal">Shifts</Link>
-            <Link href="/schedule" className="transition-colors text-gray-text hover:text-teal">My Schedule</Link>
-            <Link href="/profile" className="font-medium text-teal">Profile</Link>
-          </nav>
+    <>
+      <section
+        className="px-4 py-10 md:py-8"
+        style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
+      >
+        <div className="mx-auto max-w-4xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/80">
+            Volunteer Portal
+          </p>
+          <h1
+            className="mt-2 text-4xl font-bold tracking-tight text-white md:text-[2.7rem]"
+            style={{ fontFamily: 'var(--font-accent)' }}
+          >
+            Profile
+          </h1>
+          <p className="mt-3 max-w-xl text-lg leading-8 text-white/95">
+            Keep your volunteer contact details and preferences up to date.
+          </p>
         </div>
-      </header>
+      </section>
 
       <main className="px-4 py-8 mx-auto max-w-4xl">
         <div className="mb-8">
-          <h1 className="mb-2 text-3xl font-bold text-charcoal">Profile</h1>
-          <p className="text-gray-text">Manage your personal information and preferences</p>
+          <h2 className="mb-2 text-3xl font-bold text-charcoal">My Profile</h2>
+          <p className="text-gray-text">Manage your personal information and volunteer preferences.</p>
         </div>
 
         <div className="p-8 bg-white rounded-lg border border-gray-border">
@@ -351,19 +351,19 @@ export default function ProfilePage() {
           </div>
 
           <div className="card">
-            <h3 className="mb-3 text-lg font-semibold text-charcoal">Browse Open Shifts</h3>
+            <h3 className="mb-3 text-lg font-semibold text-charcoal">Open Shifts</h3>
             <p className="mb-4 text-gray-text">
-              Find an open slot that fits your schedule and sign up.
+              Find an open slot that fits your schedule and request it.
             </p>
             <Link
-              href="/events"
+              href="/volunteers"
               className="font-medium text-teal hover:underline"
             >
-              Browse Shifts →
+              Open shifts →
             </Link>
           </div>
         </div>
       </main>
-    </div>
+    </>
   )
 }

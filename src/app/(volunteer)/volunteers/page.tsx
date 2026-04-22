@@ -1,19 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import type { AssignmentStatus } from '@/lib/shifts/types'
 import { EVENT_DAYS } from '@/lib/shifts/types'
-
-const VOLUNTEER_LINKS = [
-  { href: '/volunteers', label: 'Open Shifts' },
-  { href: '/schedule', label: 'My Sign-ups' },
-  { href: '/profile', label: 'My Profile' },
-] as const
-
-const OLD_APP_ACCENT_FONT = '"Space Grotesk", Inter, system-ui, -apple-system, sans-serif'
 
 const ROLE_INFO: Record<string, string> = {
   'ALL DAY - LOCATION CAPTAIN':
@@ -348,9 +339,7 @@ export default function VolunteerPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f7f5] text-[#3f4a56]">
-      <VolunteerNav />
-
+    <>
       <section
         className="px-4 py-10 text-center md:py-8"
         style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
@@ -358,7 +347,7 @@ export default function VolunteerPortal() {
         <div className="mx-auto max-w-4xl">
           <h1
             className="text-4xl font-bold tracking-tight text-white md:text-[2.7rem]"
-            style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+            style={{ fontFamily: 'var(--font-accent)' }}
           >
             Volunteer at Boulder Startup Week 2026
           </h1>
@@ -439,7 +428,7 @@ export default function VolunteerPortal() {
               <div>
                 <h2
                   className="text-2xl font-semibold text-[#3f4a56]"
-                  style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+                  style={{ fontFamily: 'var(--font-accent)' }}
                 >
                   Volunteer setup
                 </h2>
@@ -560,7 +549,7 @@ export default function VolunteerPortal() {
           <section className="mb-6">
             <h2
               className="mb-3 text-[1.35rem] font-semibold text-[#ee7666]"
-              style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+              style={{ fontFamily: 'var(--font-accent)' }}
             >
               Priority Shifts
             </h2>
@@ -643,7 +632,7 @@ export default function VolunteerPortal() {
               </button>
               <h2
                 className="text-3xl font-bold text-white"
-                style={{ fontFamily: OLD_APP_ACCENT_FONT }}
+                style={{ fontFamily: 'var(--font-accent)' }}
               >
                 Make Boulder Startup Week happen.
               </h2>
@@ -685,42 +674,7 @@ export default function VolunteerPortal() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function VolunteerNav() {
-  return (
-    <nav className="sticky top-0 z-30 border-b border-[#e6e8eb] bg-white">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-        <Link
-          href="/volunteers"
-          className="text-lg font-bold tracking-tight text-[#6aa9ae]"
-          style={{ fontFamily: OLD_APP_ACCENT_FONT }}
-        >
-          BSW <span className="text-[#4a5563]">2026</span>
-        </Link>
-
-        <div className="flex flex-1 items-center justify-end gap-1 overflow-x-auto">
-          {VOLUNTEER_LINKS.map((link) => {
-            const isActive = link.href === '/volunteers'
-            return (
-              <Link
-                key={`${link.label}-${link.href}`}
-                href={link.href}
-                className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-[#eef8f8] text-[#6aa9ae]'
-                    : 'text-[#6f7883] hover:bg-[#f6f7f5] hover:text-[#6aa9ae]'
-                }`}
-              >
-                {link.label}
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-    </nav>
+    </>
   )
 }
 
