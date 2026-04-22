@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 export async function middleware(request: NextRequest) {
   const supabaseResponse = NextResponse.next({
@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!isEventAdmin(profile?.role)) {
+    if (!isAdmin(profile?.role)) {
       const url = request.nextUrl.clone()
       url.pathname = '/volunteers'
       return NextResponse.redirect(url)

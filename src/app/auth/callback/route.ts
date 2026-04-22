@@ -37,7 +37,7 @@ export async function GET(request: Request) {
             id: user.id,
             email: user.email!,
             name: user.user_metadata?.full_name || user.email!.split('@')[0],
-            role: 'volunteer',
+            role: 'admin',
           } satisfies Database['public']['Tables']['users']['Insert'])
         }
       }

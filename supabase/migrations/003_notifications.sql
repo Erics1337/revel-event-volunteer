@@ -28,10 +28,10 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own notifications" ON notifications
     FOR SELECT USING (auth.uid() = user_id);
 
--- Event admins can view all notifications
-CREATE POLICY "Event admins can view all notifications" ON notifications
-    FOR ALL USING (public.is_event_admin())
-    WITH CHECK (public.is_event_admin());
+-- Admins can view all notifications
+CREATE POLICY "Admins can view all notifications" ON notifications
+    FOR ALL USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- Grant necessary permissions
 GRANT ALL ON notifications TO authenticated;

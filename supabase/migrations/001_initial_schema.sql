@@ -14,7 +14,7 @@ CREATE TABLE users (
   bio TEXT,
   linkedin_url TEXT,
   email_public BOOLEAN DEFAULT false,
-  role TEXT NOT NULL DEFAULT 'volunteer' CHECK (role IN ('event_admin', 'volunteer')),
+  role TEXT NOT NULL DEFAULT 'volunteer' CHECK (role IN ('admin', 'volunteer')),
   badges TEXT[] DEFAULT '{}',
   blocked BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -171,7 +171,7 @@ ALTER TABLE volunteer_assignments ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 
-CREATE OR REPLACE FUNCTION public.is_event_admin()
+CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -182,7 +182,7 @@ AS $$
     SELECT 1
     FROM public.users
     WHERE id = auth.uid()
-      AND role = 'event_admin'
+      AND role = 'admin'
   );
 $$;
 
@@ -194,53 +194,53 @@ CREATE POLICY "Users can view own profile" ON users
 CREATE POLICY "Users can update own profile" ON users
     FOR UPDATE USING (auth.uid() = id);
 
--- Event admins can do everything with users
-CREATE POLICY "Event admins can manage users" ON users
-    FOR ALL USING (public.is_event_admin())
-    WITH CHECK (public.is_event_admin());
+-- Admins can do everything with users
+CREATE POLICY "Admins can manage users" ON users
+    FOR ALL USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- Everyone can view published sessions
 CREATE POLICY "Everyone can view published sessions" ON sessions
     FOR SELECT USING (status = 'published');
 
--- Event admins can view all sessions
-CREATE POLICY "Event admins can view all sessions" ON sessions
+-- Admins can view all sessions
+CREATE POLICY "Admins can view all sessions" ON sessions
     FOR SELECT USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
--- Event admins can create sessions
-CREATE POLICY "Event admins can create sessions" ON sessions
+-- Admins can create sessions
+CREATE POLICY "Admins can create sessions" ON sessions
     FOR INSERT WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
--- Event admins can update sessions
-CREATE POLICY "Event admins can update sessions" ON sessions
+-- Admins can update sessions
+CREATE POLICY "Admins can update sessions" ON sessions
     FOR UPDATE USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     )
     WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
--- Only event admins can delete sessions
-CREATE POLICY "Event admins can delete sessions" ON sessions
+-- Only admins can delete sessions
+CREATE POLICY "Admins can delete sessions" ON sessions
     FOR DELETE USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
 -- Everyone can view venues
 CREATE POLICY "Everyone can view venues" ON venues
     FOR SELECT USING (true);
 
--- Event admins can manage venues
-CREATE POLICY "Event admins can manage venues" ON venues
+-- Admins can manage venues
+CREATE POLICY "Admins can manage venues" ON venues
     FOR ALL USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     )
     WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
 -- Users can manage their own registrations
@@ -251,26 +251,26 @@ CREATE POLICY "Users can manage own registrations" ON registrations
 CREATE POLICY "Users can view own volunteer info" ON volunteers
     FOR SELECT USING (auth.uid() = user_id);
 
--- Event admins can manage all volunteers
-CREATE POLICY "Event admins can manage volunteers" ON volunteers
+-- Admins can manage all volunteers
+CREATE POLICY "Admins can manage volunteers" ON volunteers
     FOR ALL USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     )
     WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
 -- Everyone can view volunteer shifts
 CREATE POLICY "Everyone can view volunteer shifts" ON volunteer_shifts
     FOR SELECT USING (true);
 
--- Event admins can manage volunteer shifts
-CREATE POLICY "Event admins can manage volunteer shifts" ON volunteer_shifts
+-- Admins can manage volunteer shifts
+CREATE POLICY "Admins can manage volunteer shifts" ON volunteer_shifts
     FOR ALL USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     )
     WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );
 
 -- Users can view their own assignments
@@ -282,11 +282,11 @@ CREATE POLICY "Users can view own assignments" ON volunteer_assignments
         )
     );
 
--- Event admins can manage all assignments
-CREATE POLICY "Event admins can manage assignments" ON volunteer_assignments
+-- Admins can manage all assignments
+CREATE POLICY "Admins can manage assignments" ON volunteer_assignments
     FOR ALL USING (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     )
     WITH CHECK (
-        auth.uid() IS NOT NULL AND public.is_event_admin()
+        auth.uid() IS NOT NULL AND public.is_admin()
     );

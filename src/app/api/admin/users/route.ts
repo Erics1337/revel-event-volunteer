@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { Database } from '@/lib/supabase/database.types'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 type UserRoleLookup = Pick<Database['public']['Tables']['users']['Row'], 'role'>
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile || !isEventAdmin((profile as UserRoleLookup).role)) {
+    if (profileError || !profile || !isAdmin((profile as UserRoleLookup).role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -91,7 +91,7 @@ export async function PUT(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile || !isEventAdmin((profile as UserRoleLookup).role)) {
+    if (profileError || !profile || !isAdmin((profile as UserRoleLookup).role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -114,7 +114,7 @@ export async function PUT(request: Request) {
     }
 
     // Validate role
-    const validRoles = ['event_admin', 'volunteer']
+    const validRoles = ['admin', 'volunteer']
     if (update.role && !validRoles.includes(update.role)) {
       return NextResponse.json({ error: `role must be one of: ${validRoles.join(', ')}` }, { status: 400 })
     }

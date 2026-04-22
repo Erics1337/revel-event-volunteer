@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 interface AdminStats {
   total_users: number
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    if (!isEventAdmin(profile?.role)) {
+    if (!isAdmin(profile?.role)) {
       return
     }
 
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
     }
   }, [profile, fetchStats])
 
-  if (!user || !profile || !isEventAdmin(profile.role)) {
+  if (!user || !profile || !isAdmin(profile.role)) {
     return (
       <div className="min-h-screen bg-gray-light flex items-center justify-center">
         <div className="text-center">

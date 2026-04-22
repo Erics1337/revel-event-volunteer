@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 export default function Home() {
   const { user, profile, loading, signOut } = useAuth()
@@ -44,7 +44,7 @@ export default function Home() {
             </Link>
             {user ? (
               <div className="flex items-center gap-4">
-                {isEventAdmin(profile?.role) && (
+                {isAdmin(profile?.role) && (
                   <Link href="/admin" className="text-gray-text hover:text-teal transition-colors">
                     Admin
                   </Link>

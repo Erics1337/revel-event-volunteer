@@ -8,7 +8,7 @@ import { VolunteerFilters } from '@/components/admin/VolunteerFilters'
 import { VolunteerTable } from '@/components/admin/VolunteerTable'
 import { MessageModal } from '@/components/admin/MessageModal'
 import { AssignmentActions } from '@/components/admin/AssignmentActions'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 
 interface Volunteer {
   id: string
@@ -127,7 +127,7 @@ export default function AdminVolunteersPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (isEventAdmin(profile?.role)) {
+      if (isAdmin(profile?.role)) {
         await fetchData()
       }
     }
@@ -240,7 +240,7 @@ export default function AdminVolunteersPage() {
     return 'This goes to everyone signed up for this shift.'
   }
 
-  if (!user || !profile || !isEventAdmin(profile.role)) {
+  if (!user || !profile || !isAdmin(profile.role)) {
     return (
       <div className="min-h-screen bg-gray-light flex items-center justify-center">
         <div className="text-center">

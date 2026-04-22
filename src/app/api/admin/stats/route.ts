@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 import { Database } from '@/lib/supabase/database.types'
 
 type UserRoleLookup = Pick<Database['public']['Tables']['users']['Row'], 'role'>
@@ -35,7 +35,7 @@ export async function GET() {
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile || !isEventAdmin((profile as UserRoleLookup).role)) {
+    if (profileError || !profile || !isAdmin((profile as UserRoleLookup).role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

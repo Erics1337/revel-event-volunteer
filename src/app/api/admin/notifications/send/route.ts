@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { isEventAdmin } from '@/lib/auth/roles'
+import { isAdmin } from '@/lib/auth/roles'
 import { sendBulkMessage } from '@/lib/notifications/dispatcher'
 
 export async function POST(request: Request) {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !isEventAdmin(profile.role)) {
+    if (!profile || !isAdmin(profile.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
