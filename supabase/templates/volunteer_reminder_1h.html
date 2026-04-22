@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Starting Soon — Boulder Startup Week 2026</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F5F5F5;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+    }
+    
+    .header {
+      background: #F58220;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    
+    .logo {
+      margin-bottom: 12px;
+    }
+    
+    .logo img {
+      height: 45px;
+      width: auto;
+    }
+    
+    .header h1 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      color: #FFFFFF;
+      font-size: 26px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+    }
+    
+    .header-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 18px;
+      margin: 0;
+      font-weight: 500;
+    }
+    
+    .content {
+      padding: 40px 30px;
+      text-align: center;
+    }
+    
+    .greeting {
+      font-size: 20px;
+      color: #333333;
+      margin-bottom: 30px;
+      font-weight: 500;
+    }
+    
+    .shift-box {
+      background-color: #E8F5F5;
+      border: 2px solid #2B8A8F;
+      padding: 24px;
+      margin: 24px 0;
+      border-radius: 12px;
+      text-align: left;
+    }
+    
+    .shift-role {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #2B8A8F;
+      margin: 0 0 16px 0;
+      text-align: center;
+    }
+    
+    .shift-detail {
+      font-size: 16px;
+      color: #333333;
+      margin: 12px 0;
+      line-height: 1.5;
+      text-align: center;
+    }
+    
+    .shift-detail strong {
+      color: #2B8A8F;
+    }
+    
+    .emoji {
+      font-size: 48px;
+      margin: 20px 0;
+    }
+    
+    .footer {
+      background-color: #F5F5F5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #E5E5E5;
+    }
+    
+    .footer p {
+      color: #666666;
+      font-size: 14px;
+      margin: 0 0 8px 0;
+    }
+    
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 30px 20px;
+      }
+      
+      .header h1 {
+        font-size: 24px;
+      }
+      
+      .greeting {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <img src="{{ .SiteURL }}/bsw-logo-BUCTZ2oQ.png" alt="Boulder Startup Week" />
+      </div>
+      <h1>Starting in 1 Hour</h1>
+      <p class="header-subtitle">Time to head over!</p>
+    </div>
+    
+    <div class="content">
+      <div class="emoji">👋</div>
+      
+      <p class="greeting">Hey {{ .Name }},</p>
+      
+      <p style="font-size: 16px; color: #666666; line-height: 1.6; margin-bottom: 24px;">
+        Your shift starts soon. Here's what you need to know:
+      </p>
+      
+      <div class="shift-box">
+        <p class="shift-role">{{ .ShiftRole }}</p>
+        <p class="shift-detail"><strong>Time:</strong> {{ .ShiftTime }}</p>
+        <p class="shift-detail"><strong>Location:</strong> {{ .ShiftLocation }}</p>
+      </div>
+      
+      <p style="font-size: 18px; color: #333333; font-weight: 600; margin-top: 30px;">
+        See you there!
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p><strong>Boulder Startup Week 2026</strong></p>
+      <p>Thanks for making this happen.</p>
+    </div>
+  </div>
+</body>
+</html>

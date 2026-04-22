@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Signed Up — Boulder Startup Week 2026</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F5F5F5;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #2B8A8F 0%, #F5A623 60%, #F58220 100%);
+      padding: 40px 30px;
+      text-align: center;
+    }
+    
+    .logo {
+      margin-bottom: 16px;
+    }
+    
+    .logo img {
+      height: 50px;
+      width: auto;
+    }
+    
+    .header h1 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      color: #FFFFFF;
+      font-size: 26px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+    }
+    
+    .header-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      margin: 0;
+    }
+    
+    .content {
+      padding: 40px 30px;
+    }
+    
+    .greeting {
+      font-size: 18px;
+      color: #333333;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    
+    .message {
+      font-size: 16px;
+      color: #666666;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+    
+    .shift-box {
+      background-color: #E8F5F5;
+      border-left: 4px solid #2B8A8F;
+      padding: 24px;
+      margin: 30px 0;
+      border-radius: 0 12px 12px 0;
+    }
+    
+    .shift-role {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #2B8A8F;
+      margin: 0 0 16px 0;
+    }
+    
+    .shift-detail {
+      font-size: 14px;
+      color: #333333;
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    
+    .shift-detail strong {
+      color: #2B8A8F;
+    }
+    
+    .reminders-note {
+      background-color: #FFF4E6;
+      border-left: 4px solid #F58220;
+      padding: 16px 20px;
+      margin: 24px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .reminders-note p {
+      font-size: 14px;
+      color: #333333;
+      margin: 0;
+      line-height: 1.5;
+    }
+    
+    .button-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    
+    .btn {
+      display: inline-block;
+      background: #F58220;
+      color: #FFFFFF;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.9);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.9);
+      background: #D96E10;
+    }
+    
+    .footer {
+      background-color: #F5F5F5;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #E5E5E5;
+    }
+    
+    .footer p {
+      color: #666666;
+      font-size: 14px;
+      margin: 0 0 8px 0;
+    }
+    
+    .footer a {
+      color: #2B8A8F;
+      text-decoration: none;
+    }
+    
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 30px 20px;
+      }
+      
+      .header h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <img src="{{ .SiteURL }}/bsw-logo-BUCTZ2oQ.png" alt="Boulder Startup Week" />
+      </div>
+      <h1>You're Signed Up!</h1>
+      <p class="header-subtitle">Boulder Startup Week 2026 · May 4–8</p>
+    </div>
+    
+    <div class="content">
+      <p class="greeting">Hey {{ .Name }},</p>
+      
+      <p class="message">
+        Thanks for volunteering. You're confirmed for:
+      </p>
+      
+      <div class="shift-box">
+        <p class="shift-role">{{ .ShiftRole }}</p>
+        <p class="shift-detail"><strong>When:</strong> {{ .ShiftDay }}, {{ .ShiftTime }}</p>
+        <p class="shift-detail"><strong>Where:</strong> {{ .ShiftLocation }}</p>
+      </div>
+      
+      <div class="reminders-note">
+        <p>We'll send you reminder emails 24 hours and 1 hour before your shift. No surprises.</p>
+      </div>
+      
+      <div class="button-container">
+        <a href="{{ .SiteURL }}/volunteers" class="btn">
+          View My Shifts
+        </a>
+      </div>
+      
+      <p class="message">
+        Questions? Reply to this email or find us on the volunteer Slack channel.
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p><strong>Boulder Startup Week 2026</strong></p>
+      <p>Open source • MIT License • Built by builders, for builders</p>
+    </div>
+  </div>
+</body>
+</html>
