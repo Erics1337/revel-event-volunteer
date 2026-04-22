@@ -58,7 +58,7 @@ export async function PUT(request: Request) {
 
     // Whitelist updatable fields - never allow role/badges/blocked via this endpoint
     const allowed = ['name', 'headline', 'bio', 'linkedin_url', 'avatar_url', 'email_public']
-    const update: any = {}
+    const update: Record<string, unknown> = {}
     
     for (const key of allowed) {
       if (key in body) {
@@ -70,7 +70,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const { data: profile, error } = await (supabase as any)
+    const { data: profile, error } = await supabase
       .from('users')
       .update({
         ...update,
