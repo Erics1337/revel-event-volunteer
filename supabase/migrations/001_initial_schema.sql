@@ -24,7 +24,7 @@ CREATE TABLE users (
 -- Venues table
 CREATE TABLE venues (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   address TEXT NOT NULL,
   maps_url TEXT,
   capacity INTEGER,
