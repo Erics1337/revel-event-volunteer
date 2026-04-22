@@ -5,7 +5,12 @@ import { useAuth } from '@/contexts/auth-context'
 import { isEventAdmin } from '@/lib/auth/roles'
 
 export default function Home() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.href = '/auth/login'
+  }
 
   if (loading) {
     return (
@@ -48,7 +53,7 @@ export default function Home() {
                   Profile
                 </Link>
                 <button
-                  onClick={() => window.location.href = '/auth/login'}
+                  onClick={handleSignOut}
                   className="text-sm text-gray-text hover:text-teal transition-colors"
                 >
                   Sign Out
