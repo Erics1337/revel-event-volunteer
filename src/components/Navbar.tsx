@@ -56,12 +56,6 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
                 </>
               )}
             </Link>
-            <Link
-              href="/"
-              className="hidden text-sm font-medium text-[#6f7883] transition hover:text-[#5aaeb3] md:inline"
-            >
-              Home
-            </Link>
           </div>
 
           <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto">
@@ -135,12 +129,6 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
                 BSW <span className="text-[#4a5563]">Volunteer Crew</span>
               </>
             )}
-          </Link>
-          <Link
-            href="/"
-            className="hidden text-sm font-medium text-[#6f7883] transition hover:text-[#5aaeb3] md:inline"
-          >
-            Home
           </Link>
         </div>
 

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+import { DownloadIcon } from '@/components/icons'
 import { useAuth } from '@/contexts/auth-context'
 import type { AssignmentStatus } from '@/lib/shifts/types'
 
@@ -146,6 +147,7 @@ export default function SchedulePage() {
 
   const assignedByDay = groupByDay(assigned)
   const requestedByDay = groupByDay(requested)
+  const hasAssignedShifts = assigned.length > 0
 
   const renderAssignmentSections = (
     title: string,
@@ -241,12 +243,23 @@ export default function SchedulePage() {
               Review your confirmed shifts and pending requests for Boulder Startup Week 2026.
             </p>
           </div>
-          <Link
-            href="/volunteers"
-            className="inline-flex rounded-sm border border-white/45 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/12"
-          >
-            Open shifts
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            {hasAssignedShifts && (
+              <a
+                href="/api/volunteers/my-shifts/calendar"
+                className="inline-flex items-center gap-2 rounded-sm border border-white/45 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/12"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Download calendar
+              </a>
+            )}
+            <Link
+              href="/volunteers"
+              className="inline-flex rounded-sm border border-white/45 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/12"
+            >
+              Open shifts
+            </Link>
+          </div>
         </div>
       </section>
 
