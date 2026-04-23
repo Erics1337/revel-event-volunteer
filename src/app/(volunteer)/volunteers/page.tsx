@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import type { AssignmentStatus } from '@/lib/shifts/types'
 import { EVENT_DAYS } from '@/lib/shifts/types'
@@ -62,10 +62,10 @@ export default function VolunteerPortal() {
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [loading, setLoading] = useState(true)
   const [contextLoading, setContextLoading] = useState(true)
-  const [selectedDay, setSelectedDay] = useState('all')
-  const [selectedRole, setSelectedRole] = useState('all')
-  const [selectedLocation, setSelectedLocation] = useState('all')
-  const [selectedTime, setSelectedTime] = useState('all')
+  const [selectedDay, setSelectedDay] = useState<string[]>([])
+  const [selectedRole, setSelectedRole] = useState<string[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<string[]>([])
+  const [selectedTime, setSelectedTime] = useState<string[]>([])
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
@@ -156,10 +156,10 @@ export default function VolunteerPortal() {
     () =>
       shifts.filter((shift) => {
         if (showAvailabilityOnly && !availability.includes(shift.day)) return false
-        if (selectedDay !== 'all' && shift.day !== selectedDay) return false
-        if (selectedRole !== 'all' && shift.role !== selectedRole) return false
-        if (selectedLocation !== 'all' && shift.location !== selectedLocation) return false
-        if (selectedTime !== 'all' && shift.start_time !== selectedTime) return false
+        if (selectedDay.length > 0 && !selectedDay.includes(shift.day)) return false
+        if (selectedRole.length > 0 && !selectedRole.includes(shift.role)) return false
+        if (selectedLocation.length > 0 && !selectedLocation.includes(shift.location)) return false
+        if (selectedTime.length > 0 && !selectedTime.includes(shift.start_time)) return false
         return true
       }),
     [availability, selectedDay, selectedLocation, selectedRole, selectedTime, shifts, showAvailabilityOnly]
@@ -178,23 +178,20 @@ export default function VolunteerPortal() {
       label: formatDayLabel(day).full,
     }))
 
-  const roles = ['all', ...new Set(shifts.map((shift) => shift.role))].sort((a, b) =>
-    a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b)
+  const roles = Array.from(new Set(shifts.map((shift) => shift.role))).sort((a, b) =>
+    a.localeCompare(b)
   )
-  const locations = ['all', ...new Set(shifts.map((shift) => shift.location))]
+  const locations = Array.from(new Set(shifts.map((shift) => shift.location)))
 
-  const timeOptions = [
-    { value: 'all', label: 'All Times' },
-    ...Array.from(new Set(shifts.map((shift) => shift.start_time)))
-      .sort((a, b) => a.localeCompare(b))
-      .map((time) => ({ value: time, label: formatTimeLabel(time) })),
-  ]
+  const timeOptions = Array.from(new Set(shifts.map((shift) => shift.start_time)))
+    .sort((a, b) => a.localeCompare(b))
+    .map((time) => ({ value: time, label: formatTimeLabel(time) }))
 
   const clearFilters = () => {
-    setSelectedDay('all')
-    setSelectedRole('all')
-    setSelectedLocation('all')
-    setSelectedTime('all')
+    setSelectedDay([])
+    setSelectedRole([])
+    setSelectedLocation([])
+    setSelectedTime([])
   }
 
 
@@ -464,39 +461,33 @@ export default function VolunteerPortal() {
 
         <div className="rounded-md border border-[#e6e8eb] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <FilterSelect
+            <FilterMultiSelect
               label="Day"
-              value={selectedDay}
+              values={selectedDay}
               onChange={setSelectedDay}
-              options={[{ value: 'all', label: 'All Days' }, ...dayOptions]}
+              options={dayOptions}
+              placeholder="All Days"
             />
-            <FilterSelect
+            <FilterMultiSelect
               label="Role"
-              value={selectedRole}
+              values={selectedRole}
               onChange={setSelectedRole}
-              options={[
-                { value: 'all', label: 'All Roles' },
-                ...roles
-                  .filter((role) => role !== 'all')
-                  .map((role) => ({ value: role, label: role })),
-              ]}
+              options={roles.map((role) => ({ value: role, label: role }))}
+              placeholder="All Roles"
             />
-            <FilterSelect
+            <FilterMultiSelect
               label="Location"
-              value={selectedLocation}
+              values={selectedLocation}
               onChange={setSelectedLocation}
-              options={[
-                { value: 'all', label: 'All Locations' },
-                ...locations
-                  .filter((location) => location !== 'all')
-                  .map((location) => ({ value: location, label: location })),
-              ]}
+              options={locations.map((location) => ({ value: location, label: location }))}
+              placeholder="All Locations"
             />
-            <FilterSelect
+            <FilterMultiSelect
               label="Time"
-              value={selectedTime}
+              values={selectedTime}
               onChange={setSelectedTime}
               options={timeOptions}
+              placeholder="All Times"
             />
           </div>
         </div>
@@ -505,7 +496,7 @@ export default function VolunteerPortal() {
           <p className="text-sm text-[#7f8691]">
             {filtered.length} shift{filtered.length !== 1 ? 's' : ''}
           </p>
-          {(selectedDay !== 'all' || selectedRole !== 'all' || selectedLocation !== 'all' || selectedTime !== 'all') && (
+          {(selectedDay.length > 0 || selectedRole.length > 0 || selectedLocation.length > 0 || selectedTime.length > 0) && (
             <button
               onClick={clearFilters}
               className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
@@ -584,34 +575,94 @@ export default function VolunteerPortal() {
   )
 }
 
-function FilterSelect({
+function FilterMultiSelect({
   label,
-  value,
+  values,
   onChange,
   options,
+  placeholder = 'All',
 }: {
   label: string
-  value: string
-  onChange: (value: string) => void
+  values: string[]
+  onChange: (values: string[]) => void
   options: Array<{ value: string; label: string }>
+  placeholder?: string
 }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleToggle = (value: string) => {
+    if (values.includes(value)) {
+      onChange(values.filter((v) => v !== value))
+    } else {
+      onChange([...values, value])
+    }
+  }
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onChange([])
+  }
+
+  const displayValue = values.length === 0 
+    ? placeholder 
+    : values.length === 1 
+      ? options.find(o => o.value === values[0])?.label 
+      : `${values.length} selected`
+
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 relative" ref={containerRef}>
       <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-sm border border-[#d8dde3] bg-white px-4 text-sm text-[#505966] outline-none transition focus:border-[#6aa9ae]"
+      <div
+        onClick={() => setOpen(!open)}
+        className="flex h-10 cursor-pointer items-center justify-between rounded-sm border border-[#d8dde3] bg-white px-4 text-sm text-[#505966] outline-none transition hover:border-[#6aa9ae]"
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="truncate pr-2">{displayValue}</span>
+        <div className="flex items-center gap-1">
+          {values.length > 0 && (
+            <button 
+              onClick={handleClear}
+              className="text-[#a0a6af] hover:text-[#505966]"
+            >
+              ×
+            </button>
+          )}
+          <svg className={`h-4 w-4 text-[#a0a6af] transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      {open && (
+        <div className="absolute top-full z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-[#e7ebef] bg-white py-1 shadow-lg">
+          {options.map((option) => (
+            <label
+              key={option.value}
+              className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-[#f6f7f5]"
+            >
+              <input
+                type="checkbox"
+                checked={values.includes(option.value)}
+                onChange={() => handleToggle(option.value)}
+                className="rounded border-[#d8dde3] text-[#6aa9ae] focus:ring-[#6aa9ae]"
+              />
+              <span className="text-[#505966]">{option.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
