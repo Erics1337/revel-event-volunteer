@@ -65,6 +65,7 @@ export default function VolunteerPortal() {
   const [selectedDay, setSelectedDay] = useState('all')
   const [selectedRole, setSelectedRole] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState('all')
+  const [selectedTime, setSelectedTime] = useState('all')
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
@@ -158,9 +159,10 @@ export default function VolunteerPortal() {
         if (selectedDay !== 'all' && shift.day !== selectedDay) return false
         if (selectedRole !== 'all' && shift.role !== selectedRole) return false
         if (selectedLocation !== 'all' && shift.location !== selectedLocation) return false
+        if (selectedTime !== 'all' && shift.start_time !== selectedTime) return false
         return true
       }),
-    [availability, selectedDay, selectedLocation, selectedRole, shifts, showAvailabilityOnly]
+    [availability, selectedDay, selectedLocation, selectedRole, selectedTime, shifts, showAvailabilityOnly]
   )
 
   const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
@@ -181,10 +183,18 @@ export default function VolunteerPortal() {
   )
   const locations = ['all', ...new Set(shifts.map((shift) => shift.location))]
 
+  const timeOptions = [
+    { value: 'all', label: 'All Times' },
+    ...Array.from(new Set(shifts.map((shift) => shift.start_time)))
+      .sort((a, b) => a.localeCompare(b))
+      .map((time) => ({ value: time, label: formatTimeLabel(time) })),
+  ]
+
   const clearFilters = () => {
     setSelectedDay('all')
     setSelectedRole('all')
     setSelectedLocation('all')
+    setSelectedTime('all')
   }
 
 
@@ -453,7 +463,7 @@ export default function VolunteerPortal() {
         )}
 
         <div className="rounded-md border border-[#e6e8eb] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
             <FilterSelect
               label="Day"
               value={selectedDay}
@@ -482,6 +492,12 @@ export default function VolunteerPortal() {
                   .map((location) => ({ value: location, label: location })),
               ]}
             />
+            <FilterSelect
+              label="Time"
+              value={selectedTime}
+              onChange={setSelectedTime}
+              options={timeOptions}
+            />
           </div>
         </div>
 
@@ -489,7 +505,7 @@ export default function VolunteerPortal() {
           <p className="text-sm text-[#7f8691]">
             {filtered.length} shift{filtered.length !== 1 ? 's' : ''}
           </p>
-          {(selectedDay !== 'all' || selectedRole !== 'all' || selectedLocation !== 'all') && (
+          {(selectedDay !== 'all' || selectedRole !== 'all' || selectedLocation !== 'all' || selectedTime !== 'all') && (
             <button
               onClick={clearFilters}
               className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
