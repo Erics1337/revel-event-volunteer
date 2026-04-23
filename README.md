@@ -99,6 +99,8 @@ This repo is already linked to the production Supabase project `stmeubgvlednhhca
 | `npm run db:migrate:new -- <name>` | Scaffold a new migration file |
 | `npm run db:migrate:up` | Apply pending migrations locally + `db:types` |
 | `npm run db:push` | Push migrations to the linked production DB + `db:types` |
+| `npm run config:push` | Push configuration in `supabase/config.toml` (using `.env.production`) to the linked production project |
+| `npm run db:reset:prod` | ⚠️ **DANGER:** Wipe and reset linked production DB + `config:push` + `db:types` |
 
 **Always** use the `db:*` npm scripts instead of calling `supabase` directly so
 that `database.types.ts` stays in sync with the schema.

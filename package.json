@@ -11,7 +11,9 @@
     "db:reset": "supabase db reset && npm run db:types",
     "db:migrate:new": "supabase migration new",
     "db:migrate:up": "supabase migration up && npm run db:types",
-    "db:push": "supabase db push --linked && npm run db:types"
+    "db:push": "supabase db push --linked && npm run db:types",
+    "db:reset:prod": "npm run config:push && supabase db reset --linked && npm run db:types",
+    "config:push": "set -a && source .env.production && set +a && supabase config push"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
