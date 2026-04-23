@@ -7,12 +7,18 @@ import type {
   AvailableVolunteer,
   VenueRecord,
 } from '@/lib/shifts/types'
-import { SHIFT_ROLES, EVENT_DAYS, VENUE_ADDRESSES, VENUE_NAMES } from '@/lib/shifts/types'
+import {
+  DEFAULT_SHIFT_ROLE,
+  EVENT_DAYS,
+  VENUE_ADDRESSES,
+  VENUE_NAMES,
+} from '@/lib/shifts/types'
 import type { ShiftEditorInput } from '@/components/admin/useShiftAdminData'
 
 interface ShiftModalProps {
   mode: 'create' | 'edit'
   initial?: Partial<VolunteerShift>
+  availableRoles?: string[]
   assignments?: ShiftAssignment[]
   volunteers?: AvailableVolunteer[]
   venues?: VenueRecord[]
@@ -31,6 +37,7 @@ interface ShiftModalProps {
 export function ShiftModal({
   mode,
   initial,
+  availableRoles = [],
   assignments = [],
   volunteers = [],
   venues = [],
@@ -42,7 +49,7 @@ export function ShiftModal({
   onAssign,
   onUnassign,
 }: ShiftModalProps) {
-  const [role, setRole] = useState(initial?.role ?? SHIFT_ROLES[0])
+  const [role, setRole] = useState(initial?.role ?? availableRoles[0] ?? DEFAULT_SHIFT_ROLE)
   const [day, setDay] = useState(initial?.day ?? EVENT_DAYS[0].date)
   const [startTime, setStartTime] = useState(initial?.start_time?.slice(0, 5) ?? '09:00')
   const [endTime, setEndTime] = useState(initial?.end_time?.slice(0, 5) ?? '11:00')
@@ -197,18 +204,20 @@ export function ShiftModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Role</label>
-              <select
+              <input
+                type="text"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
+                list="shift-modal-role-options"
                 className="w-full px-3 py-2 border border-gray-border rounded-md"
+                placeholder="Shift role"
                 required
-              >
-                {SHIFT_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
+              />
+              <datalist id="shift-modal-role-options">
+                {availableRoles.map((availableRole) => (
+                  <option key={availableRole} value={availableRole} />
                 ))}
-              </select>
+              </datalist>
             </div>
 
             <div>

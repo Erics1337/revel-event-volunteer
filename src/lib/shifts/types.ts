@@ -56,20 +56,29 @@ export const EVENT_DAYS = [
   { date: '2026-05-08', label: 'Fri, May 8' },
 ] as const
 
-/**
- * Shift roles — must stay in sync with the `shift_role` Postgres enum declared
- * in `supabase/migrations/006_volunteer_enums.sql`. To add a role:
- *   1. Add it to the enum via a new migration: `ALTER TYPE shift_role ADD VALUE '...';`
- *   2. Add it here.
- */
-export const SHIFT_ROLES = [
+export const DEFAULT_SHIFT_ROLE_SUGGESTIONS = [
   'ALL DAY - LOCATION CAPTAIN',
   'Building Runner',
   'Room Runner',
   'Volunteer Hub / Door Monitor',
 ] as const
 
-export type ShiftRole = (typeof SHIFT_ROLES)[number]
+export const DEFAULT_SHIFT_ROLE = DEFAULT_SHIFT_ROLE_SUGGESTIONS[1]
+
+export function getShiftRoles(
+  shifts: Array<Pick<VolunteerShift, 'role'>> = [],
+  extraRoles: string[] = []
+): string[] {
+  const roles = [...shifts.map((shift) => shift.role), ...extraRoles]
+    .map((role) => role.trim())
+    .filter(Boolean)
+
+  if (roles.length === 0) {
+    return [...DEFAULT_SHIFT_ROLE_SUGGESTIONS]
+  }
+
+  return [...new Set(roles)].sort((left, right) => left.localeCompare(right))
+}
 
 /**
  * Default venue names used as a fallback until venue records are loaded.

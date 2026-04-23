@@ -5,7 +5,7 @@ import { ShiftCalendar } from '@/components/admin/ShiftCalendar'
 import { ShiftModal } from '@/components/admin/ShiftModal'
 import { VolunteerPool } from '@/components/admin/VolunteerPool'
 import { useShiftAdminData } from '@/components/admin/useShiftAdminData'
-import type { VolunteerShift } from '@/lib/shifts/types'
+import { getShiftRoles, type VolunteerShift } from '@/lib/shifts/types'
 
 type ModalState =
   | { kind: 'closed' }
@@ -42,6 +42,7 @@ export default function AdminShiftsCalendarPage() {
     unassignVolunteer,
   } = useShiftAdminData()
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' })
+  const availableRoles = useMemo(() => getShiftRoles(shifts), [shifts])
 
   const modalAssignments = useMemo(() => {
     if (modal.kind !== 'edit') return []
@@ -114,6 +115,7 @@ export default function AdminShiftsCalendarPage() {
       {modal.kind === 'create' ? (
         <ShiftModal
           mode="create"
+          availableRoles={availableRoles}
           initial={{
             day: toDateYMD(modal.start),
             start_time: toTimeHHMM(modal.start),
@@ -130,6 +132,7 @@ export default function AdminShiftsCalendarPage() {
       {modal.kind === 'edit' ? (
         <ShiftModal
           mode="edit"
+          availableRoles={availableRoles}
           initial={modal.shift}
           assignments={modalAssignments}
           volunteers={volunteers}

@@ -130,7 +130,8 @@ export function useShiftAdminData() {
     }
 
     setShifts((payload.shifts || []) as VolunteerShift[])
-  }, [])
+    await refresh()
+  }, [refresh])
 
   const importFile = useCallback(async (file: File) => {
     const formData = new FormData()

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/require-admin'
-import { sanitizeShiftInput, toShiftInsert } from '@/lib/shifts/admin'
+import { sanitizeShiftInput, syncVenuesForShifts, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function PUT(
   request: Request,
@@ -32,6 +32,11 @@ export async function PUT(
 
     if (sanitized.error || !sanitized.value) {
       return NextResponse.json({ error: sanitized.error || 'Invalid shift' }, { status: 400 })
+    }
+
+    const venueSync = await syncVenuesForShifts(supabase, [sanitized.value])
+    if (venueSync.error) {
+      return NextResponse.json({ error: venueSync.error }, { status: 400 })
     }
 
     const { data: shift, error: dbError } = await supabase

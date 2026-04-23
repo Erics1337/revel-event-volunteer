@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/require-admin'
-import { sanitizeShiftInput, sortShifts, toShiftInsert } from '@/lib/shifts/admin'
+import { sanitizeShiftInput, sortShifts, syncVenuesForShifts, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function POST(request: Request) {
   const { supabase, error } = await requireAdmin()
@@ -26,6 +26,11 @@ export async function POST(request: Request) {
       }
 
       sanitizedShifts.push(sanitized.value)
+    }
+
+    const venueSync = await syncVenuesForShifts(supabase, sanitizedShifts)
+    if (venueSync.error) {
+      return NextResponse.json({ error: venueSync.error }, { status: 400 })
     }
 
     if (deletedShiftIds.length > 0) {

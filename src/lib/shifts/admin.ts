@@ -1,9 +1,11 @@
 import Papa from 'papaparse'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
-import { EVENT_DAYS, SHIFT_ROLES, VENUE_ADDRESSES } from '@/lib/shifts/types'
+import { EVENT_DAYS, VENUE_ADDRESSES } from '@/lib/shifts/types'
 
 export type ShiftInsert = Database['public']['Tables']['volunteer_shifts']['Insert']
 export type ShiftUpdate = Database['public']['Tables']['volunteer_shifts']['Update']
+export type VenueInsert = Database['public']['Tables']['venues']['Insert']
 export const SHIFT_EXPORT_HEADERS = [
   'Day',
   'Role',
@@ -32,7 +34,6 @@ export interface EditableShiftInput {
 type CsvRow = Record<string, unknown>
 
 const VALID_DAYS = new Set<string>(EVENT_DAYS.map((day) => day.date))
-const VALID_ROLES = new Set<string>(SHIFT_ROLES)
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
 const DAY_ALIASES = new Map<string, string>(
   EVENT_DAYS.flatMap((day) => {
@@ -155,8 +156,8 @@ export function sanitizeShiftInput(
   const address = normalizeOptionalText(input.address) ?? (location in VENUE_ADDRESSES ? VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] : null)
   const notes = normalizeOptionalText(input.notes)
 
-  if (!VALID_ROLES.has(role as (typeof SHIFT_ROLES)[number])) {
-    return { error: `${label}: role must be one of the supported shift roles` }
+  if (!role) {
+    return { error: `${label}: role is required` }
   }
 
   if (!day) {
@@ -196,7 +197,7 @@ export function sanitizeShiftInput(
 
 export function toShiftInsert(shift: EditableShiftInput): ShiftInsert {
   return {
-    role: shift.role as Database['public']['Enums']['shift_role'],
+    role: shift.role,
     day: shift.day,
     start_time: shift.start_time,
     end_time: shift.end_time,
@@ -318,4 +319,100 @@ function shiftsToLegacyRows(shifts: EditableShiftInput[]) {
       Notes: shift.notes ?? '',
     }))
   )
+}
+
+export function collectVenueRecords(
+  shifts: Array<Pick<EditableShiftInput, 'location' | 'address'>>
+): { venues?: VenueInsert[]; error?: string } {
+  const byLocation = new Map<string, string>()
+
+  for (const shift of shifts) {
+    const location = normalizeText(shift.location)
+    const address = normalizeText(shift.address)
+
+    if (!location || !address) {
+      continue
+    }
+
+    const existingAddress = byLocation.get(location)
+    if (existingAddress && existingAddress !== address) {
+      return {
+        error: `Location "${location}" has multiple addresses. Each location must map to exactly one address.`,
+      }
+    }
+
+    byLocation.set(location, address)
+  }
+
+  return {
+    venues: [...byLocation.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([name, address]) => ({
+        name,
+        address,
+      })),
+  }
+}
+
+export async function syncVenuesForShifts(
+  supabase: SupabaseClient<Database>,
+  shifts: Array<Pick<EditableShiftInput, 'location' | 'address'>>
+): Promise<{ error?: string }> {
+  const collected = collectVenueRecords(shifts)
+  if (collected.error) {
+    return { error: collected.error }
+  }
+
+  const venues = collected.venues || []
+  if (venues.length === 0) {
+    return {}
+  }
+
+  const { data: existingVenues, error: fetchError } = await supabase
+    .from('venues')
+    .select('id, name, address')
+    .in(
+      'name',
+      venues.map((venue) => venue.name)
+    )
+
+  if (fetchError) {
+    return { error: fetchError.message }
+  }
+
+  const existingByName = new Map((existingVenues || []).map((venue) => [venue.name, venue]))
+
+  for (const venue of venues) {
+    const existingVenue = existingByName.get(venue.name)
+
+    if (!existingVenue) {
+      const { error: insertError } = await supabase.from('venues').insert(venue)
+      if (insertError) {
+        return { error: insertError.message }
+      }
+      continue
+    }
+
+    if (existingVenue.address !== venue.address) {
+      const { error: updateVenueError } = await supabase
+        .from('venues')
+        .update({ address: venue.address })
+        .eq('id', existingVenue.id)
+
+      if (updateVenueError) {
+        return { error: updateVenueError.message }
+      }
+    }
+
+    const { error: updateShiftAddressesError } = await supabase
+      .from('volunteer_shifts')
+      .update({ address: venue.address })
+      .eq('location', venue.name)
+
+    if (updateShiftAddressesError) {
+      return { error: updateShiftAddressesError.message }
+    }
+  }
+
+  return {}
 }

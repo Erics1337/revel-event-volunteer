@@ -2,6 +2,7 @@
 
 import { ShiftSpreadsheet } from '@/components/admin/ShiftSpreadsheet'
 import { useShiftAdminData } from '@/components/admin/useShiftAdminData'
+import { getShiftRoles } from '@/lib/shifts/types'
 
 export default function AdminShiftsSpreadsheetPage() {
   const {
@@ -18,6 +19,7 @@ export default function AdminShiftsSpreadsheetPage() {
     assignVolunteer,
     unassignVolunteer,
   } = useShiftAdminData()
+  const availableRoles = getShiftRoles(shifts)
 
   if (loading) {
     return (
@@ -38,6 +40,7 @@ export default function AdminShiftsSpreadsheetPage() {
       <ShiftSpreadsheet
         key={JSON.stringify(shifts)}
         shifts={shifts}
+        availableRoles={availableRoles}
         assignments={assignments}
         volunteers={volunteers}
         venues={venues}

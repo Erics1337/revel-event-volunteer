@@ -230,7 +230,7 @@ export type Database = {
           id: string
           location: string
           notes: string | null
-          role: Database["public"]["Enums"]["shift_role"]
+          role: string
           start_time: string
           total_slots: number
         }
@@ -243,7 +243,7 @@ export type Database = {
           id?: string
           location: string
           notes?: string | null
-          role: Database["public"]["Enums"]["shift_role"]
+          role: string
           start_time: string
           total_slots: number
         }
@@ -256,7 +256,7 @@ export type Database = {
           id?: string
           location?: string
           notes?: string | null
-          role?: Database["public"]["Enums"]["shift_role"]
+          role?: string
           start_time?: string
           total_slots?: number
         }
@@ -308,18 +308,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      shift_role:
-        | "ALL DAY - LOCATION CAPTAIN"
-        | "Building Runner"
-        | "Room Runner"
-        | "Volunteer Hub / Door Monitor"
-      venue_name:
-        | "Boulder Associates"
-        | "Boulder Public Library"
-        | "Brand Studios"
-        | "Canyon Center"
-        | "Rosetta Hall"
-        | "SOVRN"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -450,20 +439,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      shift_role: [
-        "ALL DAY - LOCATION CAPTAIN",
-        "Building Runner",
-        "Room Runner",
-        "Volunteer Hub / Door Monitor",
-      ],
-      venue_name: [
-        "Boulder Associates",
-        "Boulder Public Library",
-        "Brand Studios",
-        "Canyon Center",
-        "Rosetta Hall",
-        "SOVRN",
-      ],
+      // No public enums remain after converting venue and role fields to text.
     },
   },
 } as const

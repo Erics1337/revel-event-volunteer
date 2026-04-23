@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { requireAdmin } from '@/lib/admin/require-admin'
-import { parseShiftCsv, parseShiftRows, sortShifts, toShiftInsert } from '@/lib/shifts/admin'
+import {
+  parseShiftCsv,
+  parseShiftRows,
+  sortShifts,
+  syncVenuesForShifts,
+  toShiftInsert,
+} from '@/lib/shifts/admin'
 
 export async function POST(request: Request) {
   const { supabase, error } = await requireAdmin()
@@ -42,6 +48,11 @@ export async function POST(request: Request) {
 
     if (parsed.error || !parsed.shifts) {
       return NextResponse.json({ error: parsed.error || 'Import failed' }, { status: 400 })
+    }
+
+    const venueSync = await syncVenuesForShifts(supabase, parsed.shifts)
+    if (venueSync.error) {
+      return NextResponse.json({ error: venueSync.error }, { status: 400 })
     }
 
     const { error: deleteError } = await supabase

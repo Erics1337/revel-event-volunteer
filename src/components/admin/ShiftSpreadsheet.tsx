@@ -11,8 +11,8 @@ import {
 import * as Popover from '@radix-ui/react-popover'
 import { Command } from 'cmdk'
 import {
+  DEFAULT_SHIFT_ROLE,
   EVENT_DAYS,
-  SHIFT_ROLES,
   VENUE_ADDRESSES,
   VENUE_NAMES,
   type AvailableVolunteer,
@@ -35,6 +35,7 @@ interface VolunteerDraft {
 
 interface ShiftSpreadsheetProps {
   shifts: VolunteerShift[]
+  availableRoles: string[]
   assignments: ShiftAssignment[]
   volunteers: AvailableVolunteer[]
   venues: VenueRecord[]
@@ -552,17 +553,14 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
         </select>
       </td>
       <td className="px-3 py-3">
-        <select
+        <input
+          type="text"
           value={row.role}
           onChange={(event) => onRowChange('role', event.target.value)}
+          list="shift-spreadsheet-role-options"
           className={`${inputClassName} min-w-[220px]`}
-        >
-          {SHIFT_ROLES.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
+          placeholder="Shift role"
+        />
       </td>
       <td className="min-w-[240px] px-3 py-3">
         <div className="space-y-2">
@@ -774,6 +772,7 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
 
 export function ShiftSpreadsheet({
   shifts,
+  availableRoles,
   assignments,
   volunteers,
   venues,
@@ -836,9 +835,12 @@ export function ShiftSpreadsheet({
   )
 
   const addRow = useCallback(() => {
-    setRows((current) => [...current, { ...EMPTY_SHIFT, draftKey: createDraftKey() }])
+    setRows((current) => [
+      ...current,
+      { ...createEmptyShift(availableRoles[0] ?? DEFAULT_SHIFT_ROLE), draftKey: createDraftKey() },
+    ])
     setMessage(null)
-  }, [])
+  }, [availableRoles])
 
   const duplicateRow = useCallback(
     (index: number) => {
@@ -1097,17 +1099,24 @@ export function ShiftSpreadsheet({
           </table>
         </div>
       </div>
+      <datalist id="shift-spreadsheet-role-options">
+        {availableRoles.map((role) => (
+          <option key={role} value={role} />
+        ))}
+      </datalist>
     </div>
   )
 }
 
-const EMPTY_SHIFT: ShiftEditorInput = {
-  role: SHIFT_ROLES[0],
-  day: EVENT_DAYS[0].date,
-  start_time: '09:00',
-  end_time: '11:00',
-  location: VENUE_NAMES[0],
-  address: VENUE_ADDRESSES[VENUE_NAMES[0]],
-  total_slots: 1,
-  notes: '',
+function createEmptyShift(role: string): ShiftEditorInput {
+  return {
+    role,
+    day: EVENT_DAYS[0].date,
+    start_time: '09:00',
+    end_time: '11:00',
+    location: VENUE_NAMES[0],
+    address: VENUE_ADDRESSES[VENUE_NAMES[0]],
+    total_slots: 1,
+    notes: '',
+  }
 }
