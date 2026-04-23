@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
   const { data: shift, error: shiftError } = await supabase
     .from('volunteer_shifts')
-    .select('id, day, total_slots, filled_slots')
+    .select('id, day, start_time, end_time, total_slots, filled_slots')
     .eq('id', shiftId)
     .single()
 
@@ -129,6 +129,45 @@ export async function POST(request: Request) {
 
   if ((shift.filled_slots ?? 0) >= shift.total_slots) {
     return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
+  }
+
+  const { data: activeAssignments, error: activeAssignmentsError } = await supabase
+    .from('volunteer_assignments')
+    .select(`
+      id, 
+      status, 
+      shift_id,
+      shift:volunteer_shifts!inner (
+        id,
+        day,
+        start_time,
+        end_time
+      )
+    `)
+    .eq('volunteer_id', volunteer.id)
+    .in('status', ['requested', 'assigned'])
+    .eq('shift.day', shift.day)
+
+  if (activeAssignmentsError) {
+    return NextResponse.json({ error: activeAssignmentsError.message }, { status: 500 })
+  }
+
+  const overlappingAssignment = activeAssignments?.find((assignment) => {
+    if (!assignment.shift) return false
+    if (assignment.shift_id === shiftId) return false
+
+    // Handle TS return type (Supabase !inner join returns array or single depending on type config, typically single for many-to-one)
+    const shift1 = Array.isArray(assignment.shift) ? assignment.shift[0] : assignment.shift
+    
+    // String comparison for times works (e.g., '09:00:00' < '12:00:00')
+    return shift.start_time < shift1.end_time && shift1.start_time < shift.end_time
+  })
+
+  if (overlappingAssignment) {
+    return NextResponse.json(
+      { error: 'This shift overlaps with another shift you are assigned to' },
+      { status: 409 }
+    )
   }
 
   const mutation = existing

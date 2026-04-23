@@ -100,6 +100,42 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          id: string
+          reminder_1h_enabled: boolean
+          reminder_1h_hours_before: number
+          reminder_24h_enabled: boolean
+          reminder_24h_hours_before: number
+          reminders_enabled: boolean
+          send_window_minutes: number
+          time_zone: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          reminder_1h_enabled?: boolean
+          reminder_1h_hours_before?: number
+          reminder_24h_enabled?: boolean
+          reminder_24h_hours_before?: number
+          reminders_enabled?: boolean
+          send_window_minutes?: number
+          time_zone?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          reminder_1h_enabled?: boolean
+          reminder_1h_hours_before?: number
+          reminder_24h_enabled?: boolean
+          reminder_24h_hours_before?: number
+          reminders_enabled?: boolean
+          send_window_minutes?: number
+          time_zone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -456,4 +492,3 @@ export const Constants = {
     },
   },
 } as const
-

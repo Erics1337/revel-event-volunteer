@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/auth-context'
 import {
   BellIcon,
   MailIcon,
-  DownloadIcon,
   SearchIcon,
   CloseIcon,
   CheckIcon,
@@ -17,6 +16,7 @@ import { MessageModal } from '@/components/admin/MessageModal'
 import { AssignmentActions } from '@/components/admin/AssignmentActions'
 import { isAdmin } from '@/lib/auth/roles'
 import { AdminHeader } from '@/components/admin/AdminHeader'
+import { DEFAULT_REMINDER_SETTINGS } from '@/lib/notifications/reminder-settings'
 import type {
   AvailableVolunteer,
   ShiftAssignment,
@@ -30,9 +30,28 @@ type MessageTarget =
   | { kind: 'day'; day: string }
 
 interface ReminderResult {
+  queued: number
   sent: number
   failed: number
   skipped: number
+}
+
+interface ReminderSettingsState {
+  reminders_enabled: boolean
+  reminder_24h_enabled: boolean
+  reminder_24h_hours_before: number
+  reminder_1h_enabled: boolean
+  reminder_1h_hours_before: number
+  send_window_minutes: number
+  time_zone: string
+}
+
+interface ReminderPreviewState {
+  now: string
+  counts: {
+    reminder_24h: { queued: number }
+    reminder_1h: { queued: number }
+  }
 }
 
 export default function AdminVolunteersPage() {
@@ -50,33 +69,34 @@ export default function AdminVolunteersPage() {
     locations: [] as string[],
     roles: [] as string[],
   })
-  const [reminderFilters, setReminderFilters] = useState({
-    days: [] as string[],
-    locations: [] as string[],
-    roles: [] as string[],
-  })
 
   const [messageModal, setMessageModal] = useState<MessageTarget | null>(null)
   const [reminderModal, setReminderModal] = useState(false)
   const [sendingReminders, setSendingReminders] = useState(false)
-  const [reminderSent, setReminderSent] = useState(false)
   const [reminderResult, setReminderResult] = useState<ReminderResult | null>(null)
+  const [reminderSettings, setReminderSettings] = useState<ReminderSettingsState>({
+    ...DEFAULT_REMINDER_SETTINGS,
+  })
+  const [reminderPreview, setReminderPreview] = useState<ReminderPreviewState | null>(null)
+  const [savingReminderSettings, setSavingReminderSettings] = useState(false)
   const [manageShiftId, setManageShiftId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setErrorMessage(null)
 
     try {
-      const [volunteersRes, shiftsRes, assignmentsRes] = await Promise.all([
+      const [volunteersRes, shiftsRes, assignmentsRes, reminderSettingsRes] = await Promise.all([
         fetch('/api/admin/volunteers/available'),
         fetch('/api/admin/shifts'),
         fetch('/api/admin/shifts/assignments'),
+        fetch('/api/admin/notifications/reminder-settings'),
       ])
 
-      const [volunteersData, shiftsData, assignmentsData] = await Promise.all([
+      const [volunteersData, shiftsData, assignmentsData, reminderSettingsData] = await Promise.all([
         volunteersRes.json(),
         shiftsRes.json(),
         assignmentsRes.json(),
+        reminderSettingsRes.json(),
       ])
 
       if (!volunteersRes.ok) {
@@ -89,6 +109,10 @@ export default function AdminVolunteersPage() {
 
       if (!assignmentsRes.ok) {
         throw new Error(assignmentsData.error || 'Failed to load assignments')
+      }
+
+      if (!reminderSettingsRes.ok) {
+        throw new Error(reminderSettingsData.error || 'Failed to load reminder settings')
       }
 
       const nextAssignments = (assignmentsData.assignments || []) as ShiftAssignment[]
@@ -110,6 +134,29 @@ export default function AdminVolunteersPage() {
       setVolunteers(nextVolunteers)
       setShifts((shiftsData.shifts || []) as VolunteerShift[])
       setAssignments(nextAssignments)
+      setReminderSettings({
+        reminders_enabled:
+          reminderSettingsData.settings?.reminders_enabled ??
+          DEFAULT_REMINDER_SETTINGS.reminders_enabled,
+        reminder_24h_enabled:
+          reminderSettingsData.settings?.reminder_24h_enabled ??
+          DEFAULT_REMINDER_SETTINGS.reminder_24h_enabled,
+        reminder_24h_hours_before:
+          reminderSettingsData.settings?.reminder_24h_hours_before ??
+          DEFAULT_REMINDER_SETTINGS.reminder_24h_hours_before,
+        reminder_1h_enabled:
+          reminderSettingsData.settings?.reminder_1h_enabled ??
+          DEFAULT_REMINDER_SETTINGS.reminder_1h_enabled,
+        reminder_1h_hours_before:
+          reminderSettingsData.settings?.reminder_1h_hours_before ??
+          DEFAULT_REMINDER_SETTINGS.reminder_1h_hours_before,
+        send_window_minutes:
+          reminderSettingsData.settings?.send_window_minutes ??
+          DEFAULT_REMINDER_SETTINGS.send_window_minutes,
+        time_zone:
+          reminderSettingsData.settings?.time_zone ?? DEFAULT_REMINDER_SETTINGS.time_zone,
+      })
+      setReminderPreview(reminderSettingsData.preview || null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load volunteer data'
       setErrorMessage(message)
@@ -219,19 +266,6 @@ export default function AdminVolunteersPage() {
     })
   }
 
-  const toggleReminderFilter = (key: 'days' | 'locations' | 'roles', value: string) => {
-    setReminderFilters((current) => {
-      const nextValues = current[key].includes(value)
-        ? current[key].filter((entry) => entry !== value)
-        : [...current[key], value]
-
-      return {
-        ...current,
-        [key]: nextValues,
-      }
-    })
-  }
-
   const handleAssignVolunteer = async (shiftId: string, volunteerId: string) => {
     setErrorMessage(null)
 
@@ -313,37 +347,63 @@ export default function AdminVolunteersPage() {
     }
   }
 
-  const filteredReminderShifts = useMemo(() => {
-    return shifts.filter((shift) => {
-      if (reminderFilters.days.length > 0 && !reminderFilters.days.includes(shift.day)) {
-        return false
+  const handleReminderToggle = (
+    key: 'reminders_enabled' | 'reminder_24h_enabled' | 'reminder_1h_enabled'
+  ) => {
+    setReminderSettings((current) => ({
+      ...current,
+      [key]: !current[key],
+    }))
+  }
+
+  const handleReminderNumberChange = (
+    key: 'reminder_24h_hours_before' | 'reminder_1h_hours_before' | 'send_window_minutes',
+    value: string
+  ) => {
+    const nextValue = Number(value)
+    if (!Number.isFinite(nextValue)) return
+
+    setReminderSettings((current) => ({
+      ...current,
+      [key]: Math.max(1, Math.trunc(nextValue)),
+    }))
+  }
+
+  const handleSaveReminderSettings = async () => {
+    setSavingReminderSettings(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/notifications/reminder-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reminderSettings),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to save reminder settings')
       }
 
-      if (
-        reminderFilters.locations.length > 0 &&
-        !reminderFilters.locations.includes(shift.location)
-      ) {
-        return false
-      }
-
-      if (reminderFilters.roles.length > 0 && !reminderFilters.roles.includes(shift.role)) {
-        return false
-      }
-
-      return true
-    })
-  }, [reminderFilters, shifts])
+      setReminderSettings(payload.settings)
+      setReminderPreview(payload.preview || null)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to save reminder settings'
+      setErrorMessage(message)
+      window.alert(message)
+    } finally {
+      setSavingReminderSettings(false)
+    }
+  }
 
   const handleSendReminders = async () => {
     setSendingReminders(true)
     setErrorMessage(null)
 
     try {
-      const shiftIds = filteredReminderShifts.map((shift) => shift.id)
       const response = await fetch('/api/admin/notifications/reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shiftIds }),
       })
 
       const payload = await response.json().catch(() => ({}))
@@ -353,11 +413,18 @@ export default function AdminVolunteersPage() {
       }
 
       setReminderResult({
+        queued: payload.queued || 0,
         sent: payload.sent || 0,
         failed: payload.failed || 0,
         skipped: payload.skipped || 0,
       })
-      setReminderSent(true)
+      setReminderPreview({
+        now: payload.now || new Date().toISOString(),
+        counts: payload.counts || {
+          reminder_24h: { queued: 0 },
+          reminder_1h: { queued: 0 },
+        },
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send reminders'
       setErrorMessage(message)
@@ -401,33 +468,6 @@ export default function AdminVolunteersPage() {
     return dayMatch
       ? `This goes to every volunteer scheduled on ${dayMatch.label}.`
       : 'This goes to everyone scheduled for the selected shifts.'
-  }
-
-  const exportCsv = () => {
-    const header = ['Name', 'Email', 'Phone', 'Status', 'Assigned Shifts', 'Availability']
-    const rows = volunteers.map((volunteer) => [
-      volunteer.name,
-      volunteer.email,
-      volunteer.phone,
-      volunteer.status,
-      String(volunteer.shift_count),
-      EVENT_DAYS.filter((day) => volunteer.availability.includes(day.date))
-        .map((day) => day.label)
-        .join('; '),
-    ])
-
-    const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => escapeCell(cell)).join(','))
-      .join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'volunteers.csv'
-    link.click()
-    URL.revokeObjectURL(url)
   }
 
   if (authLoading || loading) {
@@ -491,13 +531,12 @@ export default function AdminVolunteersPage() {
             <button
               onClick={() => {
                 setReminderResult(null)
-                setReminderSent(false)
                 setReminderModal(true)
               }}
               className="btn-secondary text-sm py-2 px-4 flex items-center gap-2"
             >
               <BellIcon className="w-4 h-4" />
-              Send day-before reminders
+              Manage reminders
             </button>
             <button
               onClick={() => setMessageModal({ kind: 'all' })}
@@ -505,13 +544,6 @@ export default function AdminVolunteersPage() {
             >
               <MailIcon className="w-4 h-4" />
               Message all
-            </button>
-            <button
-              onClick={exportCsv}
-              className="btn-secondary text-sm py-2 px-4 flex items-center gap-2"
-            >
-              <DownloadIcon className="w-4 h-4" />
-              Export CSV
             </button>
           </div>
         </div>
@@ -903,78 +935,192 @@ export default function AdminVolunteersPage() {
       {reminderModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-md p-6 max-w-lg w-full shadow-card max-h-[90vh] overflow-y-auto">
-            {reminderSent ? (
-              <div className="text-center py-4">
-                <div className="w-12 h-12 bg-teal-light rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckIcon className="w-6 h-6 text-teal" />
-                </div>
-                <p className="font-semibold text-charcoal">Reminders sent.</p>
-                <p className="text-sm text-gray-text mt-1">
-                  {reminderResult
-                    ? `${reminderResult.sent} sent, ${reminderResult.failed} failed, ${reminderResult.skipped} already queued.`
-                    : 'Assigned volunteers will receive the reminder shortly.'}
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-accent text-xl font-semibold text-charcoal mb-1">
-                    Send day-before reminders
+                    Automated reminders
                   </h3>
                   <p className="text-sm text-gray-text">
-                    Filter recipients by day, location, and/or role. Leave all unselected to
-                    message every assigned volunteer.
+                    Vercel checks reminders every hour. Admins can keep the default 24-hour and
+                    1-hour reminders, adjust the lead times, or run the check manually.
                   </p>
                 </div>
+                <button
+                  onClick={() => setReminderModal(false)}
+                  className="text-gray-mid hover:text-charcoal shrink-0"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
 
-                <VolunteerFilters
-                  dayFilters={reminderFilters.days}
-                  locationFilters={reminderFilters.locations}
-                  roleFilters={reminderFilters.roles}
-                  availableDays={EVENT_DAYS.map((day) => ({ date: day.date, label: day.label }))}
-                  availableLocations={allShiftLocations}
-                  availableRoles={allShiftRoles}
-                  onToggleDayFilter={(day) => toggleReminderFilter('days', day)}
-                  onToggleLocationFilter={(location) =>
-                    toggleReminderFilter('locations', location)
-                  }
-                  onToggleRoleFilter={(role) => toggleReminderFilter('roles', role)}
-                  onClearDayFilters={() =>
-                    setReminderFilters((current) => ({ ...current, days: [] }))
-                  }
-                  onClearLocationFilters={() =>
-                    setReminderFilters((current) => ({ ...current, locations: [] }))
-                  }
-                  onClearRoleFilters={() =>
-                    setReminderFilters((current) => ({ ...current, roles: [] }))
-                  }
-                  onClearAllFilters={() =>
-                    setReminderFilters({ days: [], locations: [], roles: [] })
-                  }
-                />
+              {reminderResult && (
+                <div className="rounded-md border border-teal/20 bg-teal-light/40 px-4 py-3">
+                  <div className="flex items-center gap-2 text-charcoal">
+                    <CheckIcon className="w-4 h-4 text-teal" />
+                    <p className="text-sm font-medium">Reminder check completed</p>
+                  </div>
+                  <p className="text-sm text-gray-text mt-1">
+                    {reminderResult.queued} queued, {reminderResult.sent} sent,{' '}
+                    {reminderResult.failed} failed, {reminderResult.skipped} skipped as already
+                    handled.
+                  </p>
+                </div>
+              )}
 
-                <div className="text-sm text-gray-text">
-                  Matching shifts: {filteredReminderShifts.length}
+              <div className="rounded-md border border-gray-border bg-gray-light px-4 py-3 text-sm text-gray-text">
+                Current timezone: <span className="font-medium text-charcoal">{reminderSettings.time_zone}</span>
+                <br />
+                Cron schedule: <span className="font-medium text-charcoal">hourly</span>
+                {reminderPreview && (
+                  <>
+                    <br />
+                    If the reminder check ran right now:
+                    <span className="font-medium text-charcoal">
+                      {' '}
+                      {reminderPreview.counts.reminder_24h.queued} first reminder
+                      {reminderPreview.counts.reminder_24h.queued === 1 ? '' : 's'} and{' '}
+                      {reminderPreview.counts.reminder_1h.queued} second reminder
+                      {reminderPreview.counts.reminder_1h.queued === 1 ? '' : 's'}
+                    </span>{' '}
+                    would be queued.
+                  </>
+                )}
+              </div>
+
+              <div className="rounded-md border border-gray-border p-4">
+                <label className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-charcoal">Enable automated reminders</p>
+                    <p className="text-xs text-gray-text">
+                      Turn all shift reminder automation on or off.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={reminderSettings.reminders_enabled}
+                    onChange={() => handleReminderToggle('reminders_enabled')}
+                    className="h-4 w-4"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4">
+                <div className="rounded-md border border-gray-border p-4">
+                  <label className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-sm font-medium text-charcoal">First reminder</p>
+                      <p className="text-xs text-gray-text">
+                        Defaults to 24 hours before the shift.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={reminderSettings.reminder_24h_enabled}
+                      onChange={() => handleReminderToggle('reminder_24h_enabled')}
+                      className="h-4 w-4"
+                    />
+                  </label>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-text">
+                      Hours before shift
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={336}
+                      value={reminderSettings.reminder_24h_hours_before}
+                      onChange={(event) =>
+                        handleReminderNumberChange(
+                          'reminder_24h_hours_before',
+                          event.target.value
+                        )
+                      }
+                      className="input mt-1"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => setReminderModal(false)}
-                    className="btn-secondary"
-                    disabled={sendingReminders}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSendReminders}
-                    disabled={sendingReminders}
-                    className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {sendingReminders ? 'Sending...' : 'Send Reminders'}
-                  </button>
+                <div className="rounded-md border border-gray-border p-4">
+                  <label className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-sm font-medium text-charcoal">Second reminder</p>
+                      <p className="text-xs text-gray-text">
+                        Defaults to 1 hour before the shift.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={reminderSettings.reminder_1h_enabled}
+                      onChange={() => handleReminderToggle('reminder_1h_enabled')}
+                      className="h-4 w-4"
+                    />
+                  </label>
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-text">
+                      Hours before shift
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={336}
+                      value={reminderSettings.reminder_1h_hours_before}
+                      onChange={(event) =>
+                        handleReminderNumberChange(
+                          'reminder_1h_hours_before',
+                          event.target.value
+                        )
+                      }
+                      className="input mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-gray-border p-4">
+                  <label className="text-xs uppercase tracking-wide text-gray-text">
+                    Reminder send window in minutes
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={240}
+                    value={reminderSettings.send_window_minutes}
+                    onChange={(event) =>
+                      handleReminderNumberChange('send_window_minutes', event.target.value)
+                    }
+                    className="input mt-1"
+                  />
+                  <p className="text-xs text-gray-text mt-2">
+                    Keep this at 60 for the hourly cron unless you have a reason to widen the
+                    catch-up window.
+                  </p>
                 </div>
               </div>
-            )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setReminderModal(false)}
+                  className="btn-secondary"
+                  disabled={savingReminderSettings || sendingReminders}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleSaveReminderSettings}
+                  disabled={savingReminderSettings || sendingReminders}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingReminderSettings ? 'Saving...' : 'Save settings'}
+                </button>
+                <button
+                  onClick={handleSendReminders}
+                  disabled={savingReminderSettings || sendingReminders}
+                  className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendingReminders ? 'Running...' : 'Run reminder check now'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
