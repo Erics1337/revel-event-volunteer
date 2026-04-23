@@ -1,6 +1,4 @@
 'use client'
-
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { DownloadIcon } from '@/components/icons'
@@ -53,6 +51,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [pendingRelease, setPendingRelease] = useState<Assignment | null>(null)
 
   const fetchMyShifts = useCallback(async () => {
     setLoading(true)
@@ -88,14 +87,6 @@ export default function SchedulePage() {
   const handleCancel = async (assignment: Assignment) => {
     if (!assignment.shift || !volunteerId) return
     const shiftId = assignment.shift.id
-    const confirmMessage =
-      assignment.status === 'requested'
-        ? 'Cancel this volunteer request?'
-        : 'Release this shift? Your slot will be opened back up for another volunteer.'
-
-    if (!confirm(confirmMessage)) {
-      return
-    }
 
     setCancellingId(assignment.id)
     try {
@@ -117,6 +108,15 @@ export default function SchedulePage() {
     }
   }
 
+  const handleActionClick = (assignment: Assignment) => {
+    if (assignment.status === 'assigned') {
+      setPendingRelease(assignment)
+      return
+    }
+
+    void handleCancel(assignment)
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-light flex items-center justify-center">
@@ -136,7 +136,6 @@ export default function SchedulePage() {
     })
 
   const assigned = upcoming.filter((assignment) => assignment.status === 'assigned')
-  const requested = upcoming.filter((assignment) => assignment.status === 'requested')
 
   const groupByDay = (items: Array<Assignment & { shift: Shift }>) =>
     items.reduce<Record<string, Array<Assignment & { shift: Shift }>>>((acc, assignment) => {
@@ -146,7 +145,6 @@ export default function SchedulePage() {
     }, {})
 
   const assignedByDay = groupByDay(assigned)
-  const requestedByDay = groupByDay(requested)
   const hasAssignedShifts = assigned.length > 0
 
   const renderAssignmentSections = (
@@ -201,7 +199,7 @@ export default function SchedulePage() {
                         </p>
                       </div>
                       <button
-                        onClick={() => handleCancel(assignment)}
+                        onClick={() => handleActionClick(assignment)}
                         disabled={cancellingId === assignment.id}
                         className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
                       >
@@ -253,12 +251,6 @@ export default function SchedulePage() {
                 Download calendar
               </a>
             )}
-            <Link
-              href="/open-shifts"
-              className="inline-flex rounded-sm border border-white/45 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/12"
-            >
-              Open shifts
-            </Link>
           </div>
         </div>
       </section>
@@ -276,30 +268,15 @@ export default function SchedulePage() {
             <p className="text-gray-text text-lg mb-4">
               You haven’t requested or claimed any shifts yet.
             </p>
-            <Link
-              href="/open-shifts"
-              className="inline-block bg-teal-500 text-white px-6 py-3 rounded-md font-medium hover:bg-teal-600 transition-colors"
-            >
-              Open shifts
-            </Link>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="bg-white border border-gray-border rounded-lg p-5">
-                <p className="text-sm text-gray-text mb-1">Assigned shifts</p>
-                <p className="text-3xl font-bold text-charcoal">{assigned.length}</p>
-                <p className="text-sm text-gray-text mt-2">
-                  These are confirmed and on your schedule.
-                </p>
-              </div>
-              <div className="bg-white border border-gray-border rounded-lg p-5">
-                <p className="text-sm text-gray-text mb-1">Requested shifts</p>
-                <p className="text-3xl font-bold text-charcoal">{requested.length}</p>
-                <p className="text-sm text-gray-text mt-2">
-                  These are pending admin approval.
-                </p>
-              </div>
+            <div className="bg-white border border-gray-border rounded-lg p-5">
+              <p className="text-sm text-gray-text mb-1">Assigned shifts</p>
+              <p className="text-3xl font-bold text-charcoal">{assigned.length}</p>
+              <p className="text-sm text-gray-text mt-2">
+                These are confirmed and on your schedule.
+              </p>
             </div>
 
             {renderAssignmentSections(
@@ -308,16 +285,60 @@ export default function SchedulePage() {
               assignedByDay,
               'You do not have any assigned shifts yet.'
             )}
-
-            {renderAssignmentSections(
-              'Requested',
-              'Pending requests you asked the admin team to review.',
-              requestedByDay,
-              'You do not have any pending shift requests right now.'
-            )}
           </div>
         )}
       </main>
+
+      {pendingRelease?.shift && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setPendingRelease(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-2xl font-semibold text-charcoal">Release this shift?</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-text">
+              This will open your spot back up for another volunteer.
+            </p>
+            <div className="mt-4 rounded-xl border border-gray-border bg-gray-light/40 p-4">
+              <p className="font-semibold text-charcoal">{pendingRelease.shift.role}</p>
+              <p className="mt-1 text-sm text-gray-text">
+                {formatDay(pendingRelease.shift.day)} ·{' '}
+                {formatTimeRange(
+                  pendingRelease.shift.start_time,
+                  pendingRelease.shift.end_time
+                )}
+              </p>
+              <p className="mt-1 text-sm text-gray-text">{pendingRelease.shift.location}</p>
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingRelease(null)}
+                className="rounded-md border border-gray-border px-4 py-2 text-sm font-medium text-gray-text transition hover:bg-gray-50"
+              >
+                Keep shift
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const assignment = pendingRelease
+                  setPendingRelease(null)
+                  if (assignment) {
+                    void handleCancel(assignment)
+                  }
+                }}
+                disabled={cancellingId === pendingRelease.id}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancellingId === pendingRelease.id ? 'Releasing…' : 'Release shift'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

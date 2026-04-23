@@ -57,6 +57,27 @@ interface VolunteerContextResponse {
   error?: string
 }
 
+type ViewMode = 'list' | 'calendar'
+
+interface ShiftRequestResponse {
+  error?: string
+  code?: string
+  conflictingShift?: {
+    role: string
+    day: string
+    start_time: string
+    end_time: string
+    location: string
+    status: AssignmentStatus
+  } | null
+}
+
+interface RequestFeedback {
+  tone: 'success' | 'error'
+  title: string
+  description: string
+}
+
 export function OpenShiftsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -70,13 +91,16 @@ export function OpenShiftsPage() {
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
-  const [setupOpen, setSetupOpen] = useState(false)
   const [setupAvailability, setSetupAvailability] = useState<string[]>([])
   const [savingSetup, setSavingSetup] = useState(false)
   const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [calendarDay, setCalendarDay] = useState<string>(EVENT_DAYS[0]?.date ?? '')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [selectedCalendarShiftId, setSelectedCalendarShiftId] = useState<string | null>(null)
+  const [highlightedShiftId, setHighlightedShiftId] = useState<string | null>(null)
+  const [requestFeedback, setRequestFeedback] = useState<RequestFeedback | null>(null)
   const shiftCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const hasLoadedInitialSetupAvailability = useRef(false)
 
@@ -162,7 +186,7 @@ export function OpenShiftsPage() {
 
   const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
   const hasVolunteerSetup = Boolean(availability.length > 0)
-  const showSetupPanel = Boolean(user && (setupOpen || !hasVolunteerSetup))
+  const showSetupPanel = Boolean(user)
   const hasAvailabilityOverlap = shifts.some((shift) => availability.includes(shift.day))
   const showAvailabilityOnly =
     Boolean(user) && onlyMyAvailability && availability.length > 0 && hasAvailabilityOverlap
@@ -191,10 +215,12 @@ export function OpenShiftsPage() {
   }, [calendarDay, filteredDays])
 
   const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
+  const nonUrgentShifts = filtered.filter((shift) => shift.filled_slots > 0)
   const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
-  const availabilityDayLabels = availability
-    .map((day) => formatDayLabel(day).short)
-    .filter(Boolean)
+  const selectedCalendarShift = useMemo(() => {
+    if (!selectedCalendarShiftId) return null
+    return filtered.find((shift) => shift.id === selectedCalendarShiftId) ?? null
+  }, [filtered, selectedCalendarShiftId])
 
   const dayOptions = Array.from(new Set(shifts.map((shift) => shift.day)))
     .sort((a, b) => a.localeCompare(b))
@@ -230,6 +256,10 @@ export function OpenShiftsPage() {
     setSetupAvailability((current) =>
       current.includes(day) ? current.filter((value) => value !== day) : [...current, day]
     )
+  }
+
+  const applyAvailabilityToDayFilter = () => {
+    setSelectedDay([...setupAvailability])
   }
 
   const handleSaveSetup = useCallback(async () => {
@@ -270,7 +300,7 @@ export function OpenShiftsPage() {
       hasLoadedInitialSetupAvailability.current = true
       return
     }
-    if (!showSetupPanel || !setupHasChanges || savingSetup) return
+    if (!setupHasChanges || savingSetup) return
 
     if (setupAvailability.length === 0) return
 
@@ -281,7 +311,7 @@ export function OpenShiftsPage() {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [handleSaveSetup, savingSetup, setupAvailability, setupHasChanges, showSetupPanel, user])
+  }, [handleSaveSetup, savingSetup, setupAvailability, setupHasChanges, user])
 
   useEffect(() => {
     if (!message) return
@@ -301,6 +331,7 @@ export function OpenShiftsPage() {
   const handlePrimaryAction = async (shift: VolunteerShift) => {
     setErrorMessage(null)
     setMessage(null)
+    setRequestFeedback(null)
 
     if (!user) {
       redirectToSignIn()
@@ -308,7 +339,6 @@ export function OpenShiftsPage() {
     }
 
     if (!hasVolunteerSetup) {
-      setSetupOpen(true)
       setErrorMessage('Complete your volunteer setup before requesting a shift.')
       return
     }
@@ -321,14 +351,42 @@ export function OpenShiftsPage() {
         body: JSON.stringify({ shiftId: shift.id }),
       })
 
-      const payload = (await response.json().catch(() => ({}))) as { error?: string }
+      const payload = (await response.json().catch(() => ({}))) as ShiftRequestResponse
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to submit volunteer request')
+        if (payload.code === 'SHIFT_CONFLICT' && payload.conflictingShift) {
+          const conflictingShift = payload.conflictingShift
+          const conflictStatus =
+            conflictingShift.status === 'assigned' ? 'already on your schedule' : 'already requested'
+
+          setRequestFeedback({
+            tone: 'error',
+            title: 'That shift conflicts with another one',
+            description: `You are ${conflictStatus} for ${conflictingShift.role} on ${formatDayLabel(
+              conflictingShift.day
+            ).full} from ${formatTimeLabel(conflictingShift.start_time)} to ${formatTimeLabel(
+              conflictingShift.end_time
+            )} at ${conflictingShift.location}.`,
+          })
+          return
+        }
+
+        setRequestFeedback({
+          tone: 'error',
+          title: 'Could not sign you up',
+          description: payload.error || 'Failed to submit volunteer request',
+        })
+        return
       }
 
       await Promise.all([loadShifts(), loadContext()])
-      setMessage('Shift assigned. We saved it to your volunteer portal.')
+      setRequestFeedback({
+        tone: 'success',
+        title: 'You are signed up',
+        description: `${shift.role} on ${formatDayLabel(shift.day).full} from ${formatTimeLabel(
+          shift.start_time
+        )} to ${formatTimeLabel(shift.end_time)} at ${shift.location} is now on your schedule.`,
+      })
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Failed to submit volunteer request'
@@ -367,16 +425,34 @@ export function OpenShiftsPage() {
   }
 
   const handleSelectShiftFromCalendar = (shiftId: string) => {
-    const shift = filtered.find((item) => item.id === shiftId)
-    if (shift) {
-      setSelectedDay([shift.day])
-    }
-
-    const element = shiftCardRefs.current[shiftId]
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+    setSelectedCalendarShiftId(shiftId)
   }
+
+  const handleOpenShiftFromCalendar = (shift: VolunteerShift) => {
+    setViewMode('list')
+    setSelectedCalendarShiftId(shift.id)
+    setHighlightedShiftId(shift.id)
+    setSelectedDay([shift.day])
+
+    window.setTimeout(() => {
+      const element = shiftCardRefs.current[shift.id]
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 0)
+  }
+
+  useEffect(() => {
+    if (!highlightedShiftId) return
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedShiftId(null)
+    }, 1200)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [highlightedShiftId])
 
   if (loading || authLoading || contextLoading) {
     return (
@@ -433,212 +509,236 @@ export function OpenShiftsPage() {
               Sign in →
             </button>
           </div>
-        ) : (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d6eced] bg-[#eef8f8] px-4 py-3">
-            <p className="text-sm text-[#6aa9ae]">
-              {showAvailabilityOnly ? (
-                <>
-                  Showing shifts on your available days:{' '}
-                  <span className="font-semibold">{availabilityDayLabels.join(', ')}</span>
-                </>
-              ) : availability.length === 0 ? (
-                'Add your availability below to filter shifts to the days you can help.'
-              ) : onlyMyAvailability ? (
-                'Showing all shifts. Your saved availability does not match the current shift dates.'
-              ) : (
-                'Showing all shifts'
-              )}
-            </p>
-            <div className="flex shrink-0 items-center gap-4 text-sm">
-              <button
-                onClick={() => setOnlyMyAvailability((current) => !current)}
-                className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
-                disabled={availability.length === 0}
-              >
-                {onlyMyAvailability ? 'Show all shifts' : 'Filter to my availability'}
-              </button>
-              <button
-                onClick={() => setSetupOpen((current) => !current)}
-                className="text-[#6f7883] transition hover:text-[#5aaeb3]"
-              >
-                {showSetupPanel ? 'Hide volunteer settings' : 'Edit volunteer settings'}
-              </button>
-            </div>
-          </div>
-        )}
+        ) : null}
 
         {showSetupPanel && (
-          <section className="mb-4 rounded-lg border border-[#e6e8eb] bg-white p-5 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
+          <section className="mb-4 rounded-xl border border-[#dbe7e8] bg-white p-5 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                  Your Availability
+                </p>
                 <h2
-                  className="text-2xl font-semibold text-[#3f4a56]"
+                  className="mt-1 text-2xl font-semibold text-[#3f4a56]"
                   style={{ fontFamily: 'var(--font-accent)' }}
                 >
-                  Volunteer setup
+                  {availability.length > 0
+                    ? 'Choose the days you want to help'
+                    : 'Set the days you want to help'}
                 </h2>
-                <p className="mt-1 text-sm text-[#6f7883]">
-                  Your availability saves automatically as you update it.
+                <p className="mt-2 max-w-2xl text-sm text-[#6f7883]">
+                  {availability.length > 0
+                    ? 'These are your saved volunteer days. Use them to keep your profile current, then apply them to the shift list when you want to browse.'
+                    : 'Pick at least one day so the page can focus on shifts that actually work for you.'}
                 </p>
               </div>
-              {hasVolunteerSetup && (
-                <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-xs font-semibold text-[#6aa9ae]">
-                  Active volunteer
-                </span>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                Availability
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {EVENT_DAYS.map((day) => {
+                  const active = setupAvailability.includes(day.date)
+                  return (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => handleSetupAvailabilityToggle(day.date)}
+                      className={`rounded-pill border px-3 py-1.5 text-sm font-medium transition ${
+                        active
+                          ? 'border-[#6aa9ae] bg-[#6aa9ae] text-white'
+                          : 'border-[#d8dde3] text-[#505966] hover:border-[#6aa9ae] hover:text-[#6aa9ae]'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {setupAvailability.length > 0 && (
+                <button
+                  type="button"
+                  onClick={applyAvailabilityToDayFilter}
+                  className="mt-4 cursor-pointer text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+                >
+                  Show shifts for my available days
+                </button>
               )}
-            </div>
-
-            <div className="grid gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
-                  Availability
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {EVENT_DAYS.map((day) => {
-                    const active = setupAvailability.includes(day.date)
-                    return (
-                      <button
-                        key={day.date}
-                        type="button"
-                        onClick={() => handleSetupAvailabilityToggle(day.date)}
-                        className={`rounded-pill border px-3 py-1.5 text-sm font-medium transition ${
-                          active
-                            ? 'border-[#6aa9ae] bg-[#6aa9ae] text-white'
-                            : 'border-[#d8dde3] text-[#505966] hover:border-[#6aa9ae] hover:text-[#6aa9ae]'
-                        }`}
-                      >
-                        {day.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 min-h-5 text-sm text-[#6f7883]">
-              {setupAvailability.length === 0
-                ? 'Choose at least one day to finish setup.'
-                : savingSetup
-                  ? 'Saving availability...'
-                  : setupHasChanges
-                    ? 'Saving changes...'
-                    : hasVolunteerSetup
-                      ? 'Saved'
-                      : 'Pick the days you can help and we will save them automatically.'}
             </div>
           </section>
         )}
 
         <div className="rounded-md border border-[#e6e8eb] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <FilterMultiSelect
-              label="Day"
-              values={selectedDay}
-              onChange={setSelectedDay}
-              options={dayOptions}
-              placeholder="All Days"
-            />
-            <FilterMultiSelect
-              label="Role"
-              values={selectedRole}
-              onChange={setSelectedRole}
-              options={roles.map((role) => ({ value: role, label: role }))}
-              placeholder="All Roles"
-            />
-            <FilterMultiSelect
-              label="Location"
-              values={selectedLocation}
-              onChange={setSelectedLocation}
-              options={locations.map((location) => ({ value: location, label: location }))}
-              placeholder="All Locations"
-            />
-            <FilterMultiSelect
-              label="Time"
-              values={selectedTime}
-              onChange={setSelectedTime}
-              options={timeOptions}
-              placeholder="All Times"
-            />
-          </div>
-        </div>
-
-        {filteredDays.length > 0 && activeCalendarDay ? (
-          <OpenShiftsCalendar
-            shifts={filtered}
-            activeDay={activeCalendarDay}
-            availableDays={filteredDays}
-            assignmentStatusByShiftId={assignmentStatusByShiftId}
-            onActiveDayChange={setCalendarDay}
-            onSelectShift={handleSelectShiftFromCalendar}
-          />
-        ) : null}
-
-        <div className="mb-3 mt-4 flex items-center justify-between gap-3">
-          <p className="text-sm text-[#7f8691]">
-            {filtered.length} shift{filtered.length !== 1 ? 's' : ''}
-          </p>
-          {(selectedDay.length > 0 || selectedRole.length > 0 || selectedLocation.length > 0 || selectedTime.length > 0) && (
-            <button
-              onClick={clearFilters}
-              className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-
-        {urgentShifts.length > 0 && (
-          <section className="mb-6">
-            <h2
-              className="mb-3 text-[1.35rem] font-semibold text-[#ee7666]"
-              style={{ fontFamily: 'var(--font-accent)' }}
-            >
-              Priority Shifts
-            </h2>
-            <div className="rounded-lg border border-[#f0b8b1] bg-[#fff6f4] p-3 sm:p-4">
-              <p className="mb-3 text-xs font-semibold text-[#ef8a7f]">
-                These shifts have zero assigned volunteers. They need coverage first.
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                Browse Mode
               </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {urgentShifts.map((shift) => (
-                  <div
-                    key={shift.id}
-                    ref={(element) => {
-                      shiftCardRefs.current[shift.id] = element
-                    }}
+              <div className="mt-2 inline-flex rounded-full border border-[#d8dde3] bg-[#f6f7f5] p-1">
+                {(
+                  [
+                    { value: 'list', label: `List (${filtered.length})` },
+                    { value: 'calendar', label: 'Calendar' },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setViewMode(option.value)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      viewMode === option.value
+                        ? 'bg-white text-[#3f4a56] shadow-[0_1px_2px_rgba(26,26,26,0.08)]'
+                        : 'text-[#6f7883] hover:text-[#5aaeb3]'
+                    }`}
                   >
-                    <ShiftCard
-                      shift={shift}
-                      relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                      submitting={submittingShiftId === shift.id}
-                      onRequest={() => handlePrimaryAction(shift)}
-                      onCancel={() => handleCancel(shift)}
-                    />
-                  </div>
+                    {option.label}
+                  </button>
                 ))}
               </div>
             </div>
-          </section>
-        )}
 
-        {filtered.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {filtered.map((shift) => (
-              <div
-                key={shift.id}
-                ref={(element) => {
-                  shiftCardRefs.current[shift.id] = element
-                }}
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:flex-1">
+              <FilterMultiSelect
+                label="Day"
+                values={selectedDay}
+                onChange={setSelectedDay}
+                options={dayOptions}
+                placeholder="All Days"
+              />
+              <FilterMultiSelect
+                label="Role"
+                values={selectedRole}
+                onChange={setSelectedRole}
+                options={roles.map((role) => ({ value: role, label: role }))}
+                placeholder="All Roles"
+              />
+              <FilterMultiSelect
+                label="Location"
+                values={selectedLocation}
+                onChange={setSelectedLocation}
+                options={locations.map((location) => ({ value: location, label: location }))}
+                placeholder="All Locations"
+              />
+              <FilterMultiSelect
+                label="Time"
+                values={selectedTime}
+                onChange={setSelectedTime}
+                options={timeOptions}
+                placeholder="All Times"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eef1f4] pt-4">
+            <div className="flex flex-wrap gap-3 text-sm text-[#6f7883]">
+              <span>{filtered.length} matching shifts</span>
+              <span>{urgentShifts.length} priority</span>
+              <span>{filteredDays.length} day view{filteredDays.length !== 1 ? 's' : ''}</span>
+            </div>
+            {(selectedDay.length > 0 ||
+              selectedRole.length > 0 ||
+              selectedLocation.length > 0 ||
+              selectedTime.length > 0) && (
+              <button
+                onClick={clearFilters}
+                className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
               >
-                <ShiftCard
-                  shift={shift}
-                  relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                  submitting={submittingShiftId === shift.id}
-                  onRequest={() => handlePrimaryAction(shift)}
-                  onCancel={() => handleCancel(shift)}
-                />
-              </div>
-            ))}
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {viewMode === 'calendar' ? (
+          filteredDays.length > 0 && activeCalendarDay ? (
+            <div className="mt-6">
+              <OpenShiftsCalendar
+                shifts={filtered}
+                activeDay={activeCalendarDay}
+                availableDays={filteredDays}
+                assignmentStatusByShiftId={assignmentStatusByShiftId}
+                onActiveDayChange={setCalendarDay}
+                onSelectShift={handleSelectShiftFromCalendar}
+              />
+            </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-[#e7ebef] bg-white px-6 py-12 text-center">
+              <p className="text-lg text-[#6f7883]">No shifts match the current filters.</p>
+              <p className="mt-2 text-sm text-[#8d94a0]">
+                Try broadening the day, role, location, or time filters.
+              </p>
+            </div>
+          )
+        ) : filtered.length > 0 ? (
+          <div className="mt-6">
+            {urgentShifts.length > 0 && (
+              <section className="mb-6">
+                <h2
+                  className="mb-3 text-[1.35rem] font-semibold text-[#ee7666]"
+                  style={{ fontFamily: 'var(--font-accent)' }}
+                >
+                  Priority Shifts
+                </h2>
+                <div className="rounded-lg border border-[#f0b8b1] bg-[#fff6f4] p-3 sm:p-4">
+                  <p className="mb-3 text-xs font-semibold text-[#ef8a7f]">
+                    These shifts have zero assigned volunteers. They need coverage first.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {urgentShifts.map((shift) => (
+                      <div
+                        key={shift.id}
+                        ref={(element) => {
+                          shiftCardRefs.current[shift.id] = element
+                        }}
+                      >
+                        <ShiftCard
+                          shift={shift}
+                          relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                          submitting={submittingShiftId === shift.id}
+                          onRequest={() => handlePrimaryAction(shift)}
+                          onCancel={() => handleCancel(shift)}
+                          highlight={highlightedShiftId === shift.id}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {nonUrgentShifts.length > 0 && (
+              <section>
+                {urgentShifts.length > 0 && (
+                  <h2
+                    className="mb-3 text-[1.35rem] font-semibold text-[#3f4a56]"
+                    style={{ fontFamily: 'var(--font-accent)' }}
+                  >
+                    All Matching Shifts
+                  </h2>
+                )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {nonUrgentShifts.map((shift) => (
+                    <div
+                      key={shift.id}
+                      ref={(element) => {
+                        shiftCardRefs.current[shift.id] = element
+                      }}
+                    >
+                      <ShiftCard
+                        shift={shift}
+                        relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                        submitting={submittingShiftId === shift.id}
+                        onRequest={() => handlePrimaryAction(shift)}
+                        onCancel={() => handleCancel(shift)}
+                        highlight={highlightedShiftId === shift.id}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="py-16 text-center">
@@ -661,6 +761,106 @@ export function OpenShiftsPage() {
             </div>
           </div>
         )}
+
+        {viewMode === 'calendar' && selectedCalendarShiftId && selectedCalendarShift ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/45 px-4 py-6"
+            onClick={() => setSelectedCalendarShiftId(null)}
+          >
+            <div
+              className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.24)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+                    Selected Shift
+                  </p>
+                  <p className="mt-1 text-sm text-[#6f7883]">
+                    Review the shift details, then request it or switch to list view.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCalendarShiftId(null)}
+                  className="rounded-full border border-[#d8dde3] p-2 text-[#6f7883] transition hover:border-[#6aa9ae] hover:text-[#6aa9ae]"
+                  aria-label="Close shift details"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+
+              <ShiftCard
+                shift={selectedCalendarShift}
+                relationshipStatus={
+                  assignmentByShiftId.get(selectedCalendarShift.id)?.status ?? null
+                }
+                submitting={submittingShiftId === selectedCalendarShift.id}
+                onRequest={() => handlePrimaryAction(selectedCalendarShift)}
+                onCancel={() => handleCancel(selectedCalendarShift)}
+              />
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleOpenShiftFromCalendar(selectedCalendarShift)}
+                  className="ml-auto cursor-pointer text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+                >
+                  Open this in list view
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {requestFeedback ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/45 px-4 py-6"
+            onClick={() => setRequestFeedback(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p
+                    className={`text-[11px] font-semibold uppercase tracking-[0.04em] ${
+                      requestFeedback.tone === 'success' ? 'text-[#5f8f92]' : 'text-[#b45446]'
+                    }`}
+                  >
+                    {requestFeedback.tone === 'success' ? 'Signup Confirmed' : 'Could Not Sign You Up'}
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold text-[#3f4a56]">
+                    {requestFeedback.title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRequestFeedback(null)}
+                  className="rounded-full border border-[#d8dde3] p-2 text-[#6f7883] transition hover:border-[#6aa9ae] hover:text-[#6aa9ae]"
+                  aria-label="Close request feedback"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-[#6f7883]">{requestFeedback.description}</p>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setRequestFeedback(null)}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                    requestFeedback.tone === 'success'
+                      ? 'bg-[#6aa9ae] text-white hover:bg-[#5b9ea3]'
+                      : 'bg-[#ef8f3d] text-white hover:bg-[#e98529]'
+                  }`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </>
   )
@@ -770,12 +970,14 @@ function ShiftCard({
   submitting,
   onRequest,
   onCancel,
+  highlight = false,
 }: {
   shift: VolunteerShift
   relationshipStatus: AssignmentStatus | null
   submitting: boolean
   onRequest: () => void
   onCancel: () => void
+  highlight?: boolean
 }) {
   const [showRoleInfo, setShowRoleInfo] = useState(false)
 
@@ -793,7 +995,13 @@ function ShiftCard({
   const canRequest = !full && !isRequested && !isAssigned
 
   return (
-    <article className="rounded-xl border border-[#e7ebef] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+    <article
+      className={`rounded-xl border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition ${
+        highlight
+          ? 'border-[#6aa9ae] ring-2 ring-[#d6eced] shadow-[0_0_0_6px_rgba(214,236,237,0.72)]'
+          : 'border-[#e7ebef]'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-xs font-semibold text-[#7bb8bc]">

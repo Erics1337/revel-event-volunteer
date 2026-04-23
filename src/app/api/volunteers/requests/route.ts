@@ -36,7 +36,7 @@ async function getVolunteerForUser() {
       supabase,
       volunteer: null,
       error: NextResponse.json(
-        { error: 'Complete your volunteer setup first' },
+        { error: 'Complete your volunteer setup first', code: 'VOLUNTEER_SETUP_REQUIRED' },
         { status: 400 }
       ),
     }
@@ -77,12 +77,12 @@ export async function POST(request: Request) {
       : null
 
   if (!shiftId) {
-    return NextResponse.json({ error: 'shiftId is required' }, { status: 400 })
+    return NextResponse.json({ error: 'shiftId is required', code: 'SHIFT_ID_REQUIRED' }, { status: 400 })
   }
 
   if (!volunteer.phone || (volunteer.availability ?? []).length === 0) {
     return NextResponse.json(
-      { error: 'Complete your volunteer setup first' },
+      { error: 'Complete your volunteer setup first', code: 'VOLUNTEER_SETUP_REQUIRED' },
       { status: 400 }
     )
   }
@@ -94,16 +94,22 @@ export async function POST(request: Request) {
     .single()
 
   if (shiftError || !shift) {
-    return NextResponse.json({ error: shiftError?.message || 'Shift not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: shiftError?.message || 'Shift not found', code: 'SHIFT_NOT_FOUND' },
+      { status: 404 }
+    )
   }
 
   if (volunteer.status !== 'confirmed') {
-    return NextResponse.json({ error: 'Volunteer profile is not active yet' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'Volunteer profile is not active yet', code: 'VOLUNTEER_NOT_CONFIRMED' },
+      { status: 409 }
+    )
   }
 
   if (!(volunteer.availability ?? []).includes(shift.day)) {
     return NextResponse.json(
-      { error: 'This shift is outside your saved availability' },
+      { error: 'This shift is outside your saved availability', code: 'OUTSIDE_AVAILABILITY' },
       { status: 409 }
     )
   }
@@ -120,15 +126,18 @@ export async function POST(request: Request) {
   }
 
   if (existing?.status === 'requested') {
-    return NextResponse.json({ error: 'Request already submitted' }, { status: 409 })
+    return NextResponse.json({ error: 'Request already submitted', code: 'ALREADY_REQUESTED' }, { status: 409 })
   }
 
   if (existing?.status === 'assigned') {
-    return NextResponse.json({ error: 'You are already assigned to this shift' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'You are already assigned to this shift', code: 'ALREADY_ASSIGNED' },
+      { status: 409 }
+    )
   }
 
   if ((shift.filled_slots ?? 0) >= shift.total_slots) {
-    return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
+    return NextResponse.json({ error: 'This shift is already full', code: 'SHIFT_FULL' }, { status: 409 })
   }
 
   const { data: activeAssignments, error: activeAssignmentsError } = await supabase
@@ -141,7 +150,9 @@ export async function POST(request: Request) {
         id,
         day,
         start_time,
-        end_time
+        end_time,
+        role,
+        location
       )
     `)
     .eq('volunteer_id', volunteer.id)
@@ -164,8 +175,25 @@ export async function POST(request: Request) {
   })
 
   if (overlappingAssignment) {
+    const conflictingShift = Array.isArray(overlappingAssignment.shift)
+      ? overlappingAssignment.shift[0]
+      : overlappingAssignment.shift
+
     return NextResponse.json(
-      { error: 'This shift overlaps with another shift you are assigned to' },
+      {
+        error: 'This shift overlaps with another shift on your schedule',
+        code: 'SHIFT_CONFLICT',
+        conflictingShift: conflictingShift
+          ? {
+              role: conflictingShift.role,
+              day: conflictingShift.day,
+              start_time: conflictingShift.start_time,
+              end_time: conflictingShift.end_time,
+              location: conflictingShift.location,
+              status: overlappingAssignment.status,
+            }
+          : null,
+      },
       { status: 409 }
     )
   }

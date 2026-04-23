@@ -141,7 +141,7 @@ export function OpenShiftsCalendar({
             Calendar View
           </h2>
           <p className="mt-1 text-sm text-[#6f7883]">
-            Scan open shifts by day, then click any block to jump to its request card.
+            Scan open shifts by day, then click any block to preview and request it.
           </p>
         </div>
 
