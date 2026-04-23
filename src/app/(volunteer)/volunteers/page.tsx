@@ -300,13 +300,7 @@ export default function VolunteerPortal() {
     }
   }
 
-  const handleRecruitCta = () => {
-    if (!user) {
-      redirectToSignIn()
-      return
-    }
-    setSetupOpen(true)
-  }
+
 
   if (loading || authLoading || contextLoading) {
     return (
@@ -335,12 +329,7 @@ export default function VolunteerPortal() {
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
             {openCount} shifts still need coverage. Request a role, save your availability, and keep your volunteer plan in one place.
           </p>
-          <button
-            onClick={handleRecruitCta}
-            className="mt-6 inline-flex rounded-sm bg-[#ef8f3d] px-10 py-3 text-base font-semibold text-white shadow-[4px_4px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
-          >
-            {user ? 'Set up volunteer profile' : 'Sign in to volunteer'}
-          </button>
+
         </div>
       </section>
 
@@ -689,6 +678,10 @@ function ShiftCard({
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-[#505966]">
         <span className="flex items-center gap-1.5">
+          <CalendarIcon />
+          {formatDayLabel(shift.day).full}
+        </span>
+        <span className="flex items-center gap-1.5">
           <ClockIcon />
           {formatTimeLabel(shift.start_time)} - {formatTimeLabel(shift.end_time)}
         </span>
@@ -821,6 +814,19 @@ function CloseIcon() {
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg className="h-4 w-4 text-[#7bb8bc]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
     </svg>
   )
 }
