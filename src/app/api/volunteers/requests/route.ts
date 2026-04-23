@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     ? supabase
         .from('volunteer_assignments')
         .update({
-          status: 'requested',
+          status: 'assigned',
           assigned_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
         .insert({
           volunteer_id: volunteer.id,
           shift_id: shiftId,
-          status: 'requested',
+          status: 'assigned',
         })
         .select('id, shift_id, volunteer_id, assigned_at, status')
         .single()
@@ -156,6 +156,8 @@ export async function POST(request: Request) {
   if (mutationError) {
     return NextResponse.json({ error: mutationError.message }, { status: 500 })
   }
+
+  await recalculateAssignedShiftCount(supabase, volunteer.id)
 
   return NextResponse.json({ assignment }, { status: existing ? 200 : 201 })
 }

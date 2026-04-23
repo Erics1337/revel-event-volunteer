@@ -269,7 +269,7 @@ export default function VolunteerPortal() {
       }
 
       await loadContext()
-      setMessage('Request submitted. We saved it to your volunteer portal.')
+      setMessage('Shift assigned. We saved it to your volunteer portal.')
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Failed to submit volunteer request'
