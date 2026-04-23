@@ -53,7 +53,7 @@ interface LocationComboboxProps {
   address: string
   currentLocation: string
   onCreateVenue: (values: { name: string; address: string }) => Promise<VenueRecord | undefined>
-  onMessage: (message: string) => void
+  onMessage: (message: string | null) => void
   onSelectLocation: (values: { location: string; address: string }) => void
   onUpdateVenue: (
     id: string,
