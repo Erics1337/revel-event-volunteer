@@ -1,26 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import type { ShiftRole, VenueName } from '@/lib/shifts/types'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return { supabase, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    return { supabase, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-
-  return { supabase, error: null }
-}
+import { requireAdmin } from '@/lib/admin/require-admin'
+import { sanitizeShiftInput, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function PUT(
   request: Request,
@@ -33,28 +13,30 @@ export async function PUT(
 
   try {
     const body = await request.json()
-    const updates: {
-      role?: ShiftRole
-      day?: string
-      start_time?: string
-      end_time?: string
-      location?: VenueName
-      total_slots?: number
-    } = {}
-    if (body.role !== undefined) updates.role = body.role as ShiftRole
-    if (body.day !== undefined) updates.day = String(body.day)
-    if (body.start_time !== undefined) updates.start_time = String(body.start_time)
-    if (body.end_time !== undefined) updates.end_time = String(body.end_time)
-    if (body.location !== undefined) updates.location = body.location as VenueName
-    if (body.total_slots !== undefined) updates.total_slots = Number(body.total_slots)
+    const { data: existingShift, error: lookupError } = await supabase
+      .from('volunteer_shifts')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    if (lookupError || !existingShift) {
+      return NextResponse.json({ error: lookupError?.message || 'Shift not found' }, { status: 404 })
+    }
+
+    const sanitized = sanitizeShiftInput({
+      ...existingShift,
+      ...body,
+      total_slots:
+        body.total_slots !== undefined ? Number(body.total_slots) : existingShift.total_slots,
+    })
+
+    if (sanitized.error || !sanitized.value) {
+      return NextResponse.json({ error: sanitized.error || 'Invalid shift' }, { status: 400 })
     }
 
     const { data: shift, error: dbError } = await supabase
       .from('volunteer_shifts')
-      .update(updates)
+      .update(toShiftInsert(sanitized.value))
       .eq('id', id)
       .select()
       .single()

@@ -222,34 +222,40 @@ export type Database = {
       }
       volunteer_shifts: {
         Row: {
+          address: string | null
           created_at: string | null
           day: string
           end_time: string
           filled_slots: number | null
           id: string
           location: Database["public"]["Enums"]["venue_name"]
+          notes: string | null
           role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
         Insert: {
+          address?: string | null
           created_at?: string | null
           day: string
           end_time: string
           filled_slots?: number | null
           id?: string
           location: Database["public"]["Enums"]["venue_name"]
+          notes?: string | null
           role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
         Update: {
+          address?: string | null
           created_at?: string | null
           day?: string
           end_time?: string
           filled_slots?: number | null
           id?: string
           location?: Database["public"]["Enums"]["venue_name"]
+          notes?: string | null
           role?: Database["public"]["Enums"]["shift_role"]
           start_time?: string
           total_slots?: number
@@ -461,4 +467,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -1,25 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return { supabase, user: null, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    return { supabase, user, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-
-  return { supabase, user, error: null }
-}
+import { requireAdmin } from '@/lib/admin/require-admin'
+import { sanitizeShiftInput, sortShifts, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function GET() {
   const { supabase, error } = await requireAdmin()
@@ -35,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ shifts })
+  return NextResponse.json({ shifts: sortShifts(shifts || []) })
 }
 
 export async function POST(request: Request) {
@@ -44,25 +25,15 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { role, day, start_time, end_time, location, total_slots } = body
+    const sanitized = sanitizeShiftInput(body)
 
-    if (!role || !day || !start_time || !end_time || !location || total_slots == null) {
-      return NextResponse.json(
-        { error: 'role, day, start_time, end_time, location, and total_slots are required' },
-        { status: 400 }
-      )
+    if (sanitized.error || !sanitized.value) {
+      return NextResponse.json({ error: sanitized.error || 'Invalid shift' }, { status: 400 })
     }
 
     const { data: shift, error: dbError } = await supabase
       .from('volunteer_shifts')
-      .insert({
-        role,
-        day,
-        start_time,
-        end_time,
-        location,
-        total_slots: Number(total_slots),
-      })
+      .insert(toShiftInsert(sanitized.value))
       .select()
       .single()
 

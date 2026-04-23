@@ -7,8 +7,10 @@ export interface VolunteerShift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
   total_slots: number
   filled_slots: number
+  notes?: string | null
 }
 
 export interface AvailableVolunteer {

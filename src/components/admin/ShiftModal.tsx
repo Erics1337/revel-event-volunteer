@@ -6,7 +6,8 @@ import type {
   ShiftAssignment,
   AvailableVolunteer,
 } from '@/lib/shifts/types'
-import { SHIFT_ROLES, EVENT_DAYS } from '@/lib/shifts/types'
+import { SHIFT_ROLES, EVENT_DAYS, VENUE_ADDRESSES, VENUE_NAMES } from '@/lib/shifts/types'
+import type { ShiftEditorInput } from '@/components/admin/useShiftAdminData'
 
 interface ShiftModalProps {
   mode: 'create' | 'edit'
@@ -14,7 +15,7 @@ interface ShiftModalProps {
   assignments?: ShiftAssignment[]
   volunteers?: AvailableVolunteer[]
   onClose: () => void
-  onSave: (values: Omit<VolunteerShift, 'id' | 'filled_slots'>) => Promise<void>
+  onSave: (values: ShiftEditorInput) => Promise<void>
   onDelete?: () => Promise<void>
   onAssign?: (volunteerId: string) => Promise<void>
   onUnassign?: (volunteerId: string) => Promise<void>
@@ -35,8 +36,12 @@ export function ShiftModal({
   const [day, setDay] = useState(initial?.day ?? EVENT_DAYS[0].date)
   const [startTime, setStartTime] = useState(initial?.start_time?.slice(0, 5) ?? '09:00')
   const [endTime, setEndTime] = useState(initial?.end_time?.slice(0, 5) ?? '11:00')
-  const [location, setLocation] = useState(initial?.location ?? '')
+  const [location, setLocation] = useState(initial?.location ?? VENUE_NAMES[0])
+  const [address, setAddress] = useState(
+    initial?.address ?? VENUE_ADDRESSES[(initial?.location as keyof typeof VENUE_ADDRESSES) ?? VENUE_NAMES[0]]
+  )
   const [totalSlots, setTotalSlots] = useState(initial?.total_slots ?? 2)
+  const [notes, setNotes] = useState(initial?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [assigningId, setAssigningId] = useState('')
 
@@ -58,7 +63,9 @@ export function ShiftModal({
         start_time: startTime,
         end_time: endTime,
         location,
+        address,
         total_slots: Number(totalSlots),
+        notes,
       })
       onClose()
     } catch (err) {
@@ -91,6 +98,13 @@ export function ShiftModal({
     } catch {
       alert('Failed to assign volunteer.')
     }
+  }
+
+  const handleLocationChange = (nextLocation: string) => {
+    const previousDefault = VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] ?? null
+    const nextDefault = VENUE_ADDRESSES[nextLocation as keyof typeof VENUE_ADDRESSES] ?? null
+    setLocation(nextLocation)
+    setAddress((current) => (!current || current === previousDefault ? nextDefault ?? current : current))
   }
 
   const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
@@ -177,13 +191,28 @@ export function ShiftModal({
 
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Location</label>
+              <select
+                value={location}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-border rounded-md"
+                required
+              >
+                {VENUE_NAMES.map((venue) => (
+                  <option key={venue} value={venue}>
+                    {venue}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1">Address</label>
               <input
                 type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                value={address ?? ''}
+                onChange={(e) => setAddress(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-border rounded-md"
-                placeholder="e.g. Boulder Theater — Lobby"
-                required
+                placeholder="Venue address"
               />
             </div>
 
@@ -198,6 +227,17 @@ export function ShiftModal({
                 onChange={(e) => setTotalSlots(Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-border rounded-md"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1">Notes</label>
+              <textarea
+                value={notes ?? ''}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-border rounded-md"
+                rows={3}
+                placeholder="Optional shift notes"
               />
             </div>
 
