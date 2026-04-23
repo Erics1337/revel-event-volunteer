@@ -40,6 +40,14 @@ export interface ShiftAssignment {
   } | null
 }
 
+export interface VenueRecord {
+  id: string
+  name: string
+  address: string
+  maps_url?: string | null
+  capacity?: number | null
+}
+
 export const EVENT_DAYS = [
   { date: '2026-05-04', label: 'Mon, May 4' },
   { date: '2026-05-05', label: 'Tue, May 5' },
@@ -64,9 +72,7 @@ export const SHIFT_ROLES = [
 export type ShiftRole = (typeof SHIFT_ROLES)[number]
 
 /**
- * Venue names — must stay in sync with the `venue_name` Postgres enum.
- * Full addresses live in the `venues` table; this map mirrors them for
- * client-side rendering without an extra query.
+ * Default venue names used as a fallback until venue records are loaded.
  */
 export const VENUE_NAMES = [
   'Boulder Associates',
@@ -77,9 +83,7 @@ export const VENUE_NAMES = [
   'SOVRN',
 ] as const
 
-export type VenueName = (typeof VENUE_NAMES)[number]
-
-export const VENUE_ADDRESSES: Record<VenueName, string> = {
+export const VENUE_ADDRESSES: Record<(typeof VENUE_NAMES)[number], string> = {
   'Boulder Associates': '1426 Pearl St #300, Boulder, CO 80302',
   'Boulder Public Library': '1001 Arapahoe Ave, Boulder, CO 80302',
   'Brand Studios': '1301 Walnut Street, Boulder, CO 80302',
@@ -88,7 +92,7 @@ export const VENUE_ADDRESSES: Record<VenueName, string> = {
   SOVRN: '1600 Pearl St #200, Boulder, CO 80302',
 }
 
-export const VENUE_MAPS_URLS: Record<VenueName, string> = {
+export const VENUE_MAPS_URLS: Record<(typeof VENUE_NAMES)[number], string> = {
   'Boulder Associates': 'https://maps.google.com/?q=Boulder+Associates',
   'Boulder Public Library': 'https://maps.google.com/?q=Boulder+Public+Library',
   'Brand Studios': 'https://maps.google.com/?q=Brand+Studios',

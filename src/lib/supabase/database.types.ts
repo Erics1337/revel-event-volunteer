@@ -158,7 +158,7 @@ export type Database = {
           created_at: string | null
           id: string
           maps_url: string | null
-          name: Database["public"]["Enums"]["venue_name"]
+          name: string
           updated_at: string | null
         }
         Insert: {
@@ -167,7 +167,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name: Database["public"]["Enums"]["venue_name"]
+          name: string
           updated_at?: string | null
         }
         Update: {
@@ -176,7 +176,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name?: Database["public"]["Enums"]["venue_name"]
+          name?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -228,7 +228,7 @@ export type Database = {
           end_time: string
           filled_slots: number | null
           id: string
-          location: Database["public"]["Enums"]["venue_name"]
+          location: string
           notes: string | null
           role: Database["public"]["Enums"]["shift_role"]
           start_time: string
@@ -241,7 +241,7 @@ export type Database = {
           end_time: string
           filled_slots?: number | null
           id?: string
-          location: Database["public"]["Enums"]["venue_name"]
+          location: string
           notes?: string | null
           role: Database["public"]["Enums"]["shift_role"]
           start_time: string
@@ -254,7 +254,7 @@ export type Database = {
           end_time?: string
           filled_slots?: number | null
           id?: string
-          location?: Database["public"]["Enums"]["venue_name"]
+          location?: string
           notes?: string | null
           role?: Database["public"]["Enums"]["shift_role"]
           start_time?: string

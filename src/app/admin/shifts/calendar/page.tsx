@@ -30,11 +30,14 @@ export default function AdminShiftsCalendarPage() {
     shifts,
     assignments,
     volunteers,
+    venues,
     loading,
     error,
     createShift,
     updateShift,
     deleteShift,
+    createVenue,
+    updateVenue,
     assignVolunteer,
     unassignVolunteer,
   } = useShiftAdminData()
@@ -116,8 +119,11 @@ export default function AdminShiftsCalendarPage() {
             start_time: toTimeHHMM(modal.start),
             end_time: toTimeHHMM(modal.end),
           }}
+          venues={venues}
           onClose={() => setModal({ kind: 'closed' })}
           onSave={createShift}
+          onCreateVenue={createVenue}
+          onUpdateVenue={updateVenue}
         />
       ) : null}
 
@@ -127,8 +133,11 @@ export default function AdminShiftsCalendarPage() {
           initial={modal.shift}
           assignments={modalAssignments}
           volunteers={volunteers}
+          venues={venues}
           onClose={() => setModal({ kind: 'closed' })}
           onSave={(values) => updateShift(modal.shift.id, values)}
+          onCreateVenue={createVenue}
+          onUpdateVenue={updateVenue}
           onDelete={() => deleteShift(modal.shift.id)}
           onAssign={(volunteerId) => assignVolunteer(modal.shift.id, volunteerId)}
           onUnassign={(volunteerId) => unassignVolunteer(modal.shift.id, volunteerId)}

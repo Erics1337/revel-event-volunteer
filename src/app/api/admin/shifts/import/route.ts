@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import * as XLSX from 'xlsx'
 import { requireAdmin } from '@/lib/admin/require-admin'
-import { parseShiftCsv, sortShifts, toShiftInsert } from '@/lib/shifts/admin'
+import { parseShiftCsv, parseShiftRows, sortShifts, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function POST(request: Request) {
   const { supabase, error } = await requireAdmin()
@@ -14,18 +15,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      return NextResponse.json({ error: 'File must be a CSV' }, { status: 400 })
-    }
+    const lowerName = file.name.toLowerCase()
+    let parsed
 
-    const csv = await file.text()
-    const parsed = parseShiftCsv(csv)
+    if (lowerName.endsWith('.csv')) {
+      parsed = parseShiftCsv(await file.text())
+    } else if (lowerName.endsWith('.xlsx')) {
+      const workbook = XLSX.read(await file.arrayBuffer(), {
+        type: 'array',
+        cellDates: false,
+      })
+      const firstSheet = workbook.SheetNames[0]
+      if (!firstSheet) {
+        return NextResponse.json({ error: 'The workbook does not contain any sheets' }, { status: 400 })
+      }
+
+      parsed = parseShiftRows(
+        XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[firstSheet], {
+          defval: '',
+          raw: false,
+        })
+      )
+    } else {
+      return NextResponse.json({ error: 'File must be a CSV or XLSX workbook in the BSW shift sheet shape' }, { status: 400 })
+    }
 
     if (parsed.error || !parsed.shifts) {
       return NextResponse.json({ error: parsed.error || 'Import failed' }, { status: 400 })
     }
 
-    const { error: deleteError } = await supabase.from('volunteer_shifts').delete().neq('id', '')
+    const { error: deleteError } = await supabase
+      .from('volunteer_shifts')
+      .delete()
+      .not('id', 'is', null)
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 })
     }

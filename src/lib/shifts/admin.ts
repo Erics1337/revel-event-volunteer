@@ -1,9 +1,21 @@
 import Papa from 'papaparse'
 import type { Database } from '@/lib/supabase/database.types'
-import { EVENT_DAYS, SHIFT_ROLES, VENUE_ADDRESSES, VENUE_NAMES } from '@/lib/shifts/types'
+import { EVENT_DAYS, SHIFT_ROLES, VENUE_ADDRESSES } from '@/lib/shifts/types'
 
 export type ShiftInsert = Database['public']['Tables']['volunteer_shifts']['Insert']
 export type ShiftUpdate = Database['public']['Tables']['volunteer_shifts']['Update']
+export const SHIFT_EXPORT_HEADERS = [
+  'Day',
+  'Role',
+  'Volunteer Name',
+  'Volunteer Cell',
+  'Volunteer Email',
+  'Location',
+  'Address',
+  'Shift_Start',
+  'Shift_End',
+  'Notes',
+] as const
 
 export interface EditableShiftInput {
   id?: string
@@ -17,15 +29,36 @@ export interface EditableShiftInput {
   notes?: string | null
 }
 
-type CsvRow = Record<string, string>
+type CsvRow = Record<string, unknown>
 
-const VALID_DAYS = new Set(EVENT_DAYS.map((day) => day.date))
-const VALID_ROLES = new Set(SHIFT_ROLES)
-const VALID_LOCATIONS = new Set(VENUE_NAMES)
+const VALID_DAYS = new Set<string>(EVENT_DAYS.map((day) => day.date))
+const VALID_ROLES = new Set<string>(SHIFT_ROLES)
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
+const DAY_ALIASES = new Map<string, string>(
+  EVENT_DAYS.flatMap((day) => {
+    const date = new Date(`${day.date}T12:00:00Z`)
+    const month = date.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })
+    const shortMonth = date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+    const dayOfMonth = date.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' })
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+    const shortWeekday = date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+
+    return [
+      [normalizeDayLabel(day.label), day.date],
+      [normalizeDayLabel(`${weekday} ${month} ${dayOfMonth}`), day.date],
+      [normalizeDayLabel(`${shortWeekday} ${month} ${dayOfMonth}`), day.date],
+      [normalizeDayLabel(`${month} ${dayOfMonth}`), day.date],
+      [normalizeDayLabel(`${shortMonth} ${dayOfMonth}`), day.date],
+    ] as const
+  })
+)
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeDayLabel(value: string): string {
+  return value.toLowerCase().replace(/,/g, '').replace(/\s+/g, ' ').trim()
 }
 
 function normalizeOptionalText(value: unknown): string | null {
@@ -65,6 +98,9 @@ function normalizeDay(value: string): string | null {
   if (!trimmed) return null
   if (VALID_DAYS.has(trimmed)) return trimmed
 
+  const aliasMatch = DAY_ALIASES.get(normalizeDayLabel(trimmed))
+  if (aliasMatch) return aliasMatch
+
   const parsed = new Date(trimmed)
   if (Number.isNaN(parsed.getTime())) return null
 
@@ -74,6 +110,20 @@ function normalizeDay(value: string): string | null {
   const normalized = `${year}-${month}-${day}`
 
   return VALID_DAYS.has(normalized) ? normalized : null
+}
+
+function formatLegacyDay(day: string): string {
+  const date = new Date(`${day}T12:00:00Z`)
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+  const month = date.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })
+  const dayOfMonth = date.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' })
+  return `${weekday} ${month} ${dayOfMonth}`
+}
+
+function formatLegacyTime(time: string): string {
+  const [hoursRaw, minutes] = time.slice(0, 5).split(':')
+  const hours = Number(hoursRaw)
+  return `${hours}:${minutes}`
 }
 
 function normalizeRowIndex(rowIndex?: number): string {
@@ -121,8 +171,8 @@ export function sanitizeShiftInput(
     return { error: `${label}: end time must be after start time` }
   }
 
-  if (!VALID_LOCATIONS.has(location as (typeof VENUE_NAMES)[number])) {
-    return { error: `${label}: location must be one of the supported venues` }
+  if (!location) {
+    return { error: `${label}: location is required` }
   }
 
   if (!Number.isInteger(totalSlots) || totalSlots < 1) {
@@ -150,7 +200,7 @@ export function toShiftInsert(shift: EditableShiftInput): ShiftInsert {
     day: shift.day,
     start_time: shift.start_time,
     end_time: shift.end_time,
-    location: shift.location as Database['public']['Enums']['venue_name'],
+    location: shift.location,
     address: shift.address ?? null,
     total_slots: shift.total_slots,
     notes: shift.notes ?? null,
@@ -159,6 +209,12 @@ export function toShiftInsert(shift: EditableShiftInput): ShiftInsert {
 
 function normalizeHeader(header: string): string {
   return header.trim().toLowerCase().replace(/[\s-]+/g, '_')
+}
+
+function normalizeRow(row: CsvRow): CsvRow {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [normalizeHeader(key), value])
+  )
 }
 
 function getCell(row: CsvRow, ...keys: string[]): string {
@@ -183,22 +239,34 @@ export function parseShiftCsv(csv: string): { shifts?: EditableShiftInput[]; err
   }
 
   const rows = parseResult.data as CsvRow[]
+  return parseShiftRows(rows)
+}
+
+export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[]; error?: string } {
   if (rows.length === 0) {
-    return { error: 'The CSV file is empty.' }
+    return { error: 'The file is empty.' }
+  }
+
+  const firstRow = normalizeRow(rows[0])
+  const requiredColumns = ['day', 'role', 'location', 'address', 'shift_start', 'shift_end', 'notes']
+  const missingColumns = requiredColumns.filter((column) => !(column in firstRow))
+  if (missingColumns.length > 0) {
+    return {
+      error: `The file must match the BSW workbook columns. Missing: ${missingColumns.join(', ')}`,
+    }
   }
 
   const shifts: EditableShiftInput[] = []
 
   for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index]
+    const row = normalizeRow(rows[index])
 
     const role = getCell(row, 'role')
     const day = getCell(row, 'day')
     const location = getCell(row, 'location')
     const address = getCell(row, 'address')
-    const start = getCell(row, 'start', 'start_time', 'shift_start')
-    const end = getCell(row, 'end', 'end_time', 'shift_end')
-    const totalSlotsValue = getCell(row, 'total_slots')
+    const start = getCell(row, 'shift_start')
+    const end = getCell(row, 'shift_end')
     const notes = getCell(row, 'notes')
 
     const normalized = sanitizeShiftInput(
@@ -209,7 +277,7 @@ export function parseShiftCsv(csv: string): { shifts?: EditableShiftInput[]; err
         address,
         start_time: start,
         end_time: end,
-        total_slots: totalSlotsValue ? Number(totalSlotsValue) : 1,
+        total_slots: 1,
         notes,
       },
       index + 2
@@ -226,15 +294,27 @@ export function parseShiftCsv(csv: string): { shifts?: EditableShiftInput[]; err
 }
 
 export function shiftsToCsv(shifts: EditableShiftInput[]): string {
-  return Papa.unparse(
-    sortShifts(shifts).map((shift) => ({
-      Day: shift.day,
+  return Papa.unparse(shiftsToLegacyRows(shifts), {
+    columns: [...SHIFT_EXPORT_HEADERS],
+  })
+}
+
+export function shiftsToTabularData(shifts: EditableShiftInput[]) {
+  return shiftsToLegacyRows(shifts)
+}
+
+function shiftsToLegacyRows(shifts: EditableShiftInput[]) {
+  return sortShifts(shifts).flatMap((shift) =>
+    Array.from({ length: shift.total_slots }, () => ({
+      Day: formatLegacyDay(shift.day),
       Role: shift.role,
+      'Volunteer Name': '',
+      'Volunteer Cell': '',
+      'Volunteer Email': '',
       Location: shift.location,
       Address: shift.address ?? '',
-      Start: shift.start_time,
-      End: shift.end_time,
-      'Total Slots': shift.total_slots,
+      Shift_Start: formatLegacyTime(shift.start_time),
+      Shift_End: formatLegacyTime(shift.end_time),
       Notes: shift.notes ?? '',
     }))
   )

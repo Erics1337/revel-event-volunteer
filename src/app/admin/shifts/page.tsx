@@ -4,7 +4,20 @@ import { ShiftSpreadsheet } from '@/components/admin/ShiftSpreadsheet'
 import { useShiftAdminData } from '@/components/admin/useShiftAdminData'
 
 export default function AdminShiftsSpreadsheetPage() {
-  const { shifts, loading, error, saveSpreadsheet, importCsv } = useShiftAdminData()
+  const {
+    shifts,
+    assignments,
+    volunteers,
+    venues,
+    loading,
+    error,
+    saveSpreadsheet,
+    importFile,
+    createVenue,
+    updateVenue,
+    assignVolunteer,
+    unassignVolunteer,
+  } = useShiftAdminData()
 
   if (loading) {
     return (
@@ -25,8 +38,15 @@ export default function AdminShiftsSpreadsheetPage() {
       <ShiftSpreadsheet
         key={JSON.stringify(shifts)}
         shifts={shifts}
+        assignments={assignments}
+        volunteers={volunteers}
+        venues={venues}
         onSave={saveSpreadsheet}
-        onImportCsv={importCsv}
+        onImportFile={importFile}
+        onCreateVenue={createVenue}
+        onUpdateVenue={updateVenue}
+        onAssignVolunteer={assignVolunteer}
+        onUnassignVolunteer={unassignVolunteer}
       />
     </div>
   )

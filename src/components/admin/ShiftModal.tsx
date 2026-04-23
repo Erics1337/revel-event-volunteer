@@ -5,6 +5,7 @@ import type {
   VolunteerShift,
   ShiftAssignment,
   AvailableVolunteer,
+  VenueRecord,
 } from '@/lib/shifts/types'
 import { SHIFT_ROLES, EVENT_DAYS, VENUE_ADDRESSES, VENUE_NAMES } from '@/lib/shifts/types'
 import type { ShiftEditorInput } from '@/components/admin/useShiftAdminData'
@@ -14,8 +15,14 @@ interface ShiftModalProps {
   initial?: Partial<VolunteerShift>
   assignments?: ShiftAssignment[]
   volunteers?: AvailableVolunteer[]
+  venues?: VenueRecord[]
   onClose: () => void
   onSave: (values: ShiftEditorInput) => Promise<void>
+  onCreateVenue?: (values: { name: string; address: string }) => Promise<VenueRecord | undefined>
+  onUpdateVenue?: (
+    id: string,
+    values: { name: string; address: string }
+  ) => Promise<VenueRecord | undefined>
   onDelete?: () => Promise<void>
   onAssign?: (volunteerId: string) => Promise<void>
   onUnassign?: (volunteerId: string) => Promise<void>
@@ -26,8 +33,11 @@ export function ShiftModal({
   initial,
   assignments = [],
   volunteers = [],
+  venues = [],
   onClose,
   onSave,
+  onCreateVenue,
+  onUpdateVenue,
   onDelete,
   onAssign,
   onUnassign,
@@ -44,6 +54,10 @@ export function ShiftModal({
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [assigningId, setAssigningId] = useState('')
+  const venueNames = [
+    ...venues.map((venue) => venue.name),
+    ...VENUE_NAMES.filter((name) => !venues.some((venue) => venue.name === name)),
+  ]
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -101,10 +115,57 @@ export function ShiftModal({
   }
 
   const handleLocationChange = (nextLocation: string) => {
+    if (nextLocation === '__add__') {
+      void handleAddLocation()
+      return
+    }
+
     const previousDefault = VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] ?? null
-    const nextDefault = VENUE_ADDRESSES[nextLocation as keyof typeof VENUE_ADDRESSES] ?? null
+    const nextDefault =
+      venues.find((venue) => venue.name === nextLocation)?.address ??
+      VENUE_ADDRESSES[nextLocation as keyof typeof VENUE_ADDRESSES] ??
+      null
     setLocation(nextLocation)
     setAddress((current) => (!current || current === previousDefault ? nextDefault ?? current : current))
+  }
+
+  const handleAddLocation = async () => {
+    if (!onCreateVenue) return
+    const name = prompt('New location name:')
+    if (!name?.trim()) return
+    const nextAddress = prompt('Location address:')
+    if (!nextAddress?.trim()) return
+
+    try {
+      const venue = await onCreateVenue({ name: name.trim(), address: nextAddress.trim() })
+      if (!venue) return
+      setLocation(venue.name)
+      setAddress(venue.address)
+    } catch {
+      alert('Failed to create location.')
+    }
+  }
+
+  const handleEditLocation = async () => {
+    const existingVenue = venues.find((venue) => venue.name === location)
+    if (!existingVenue || !onUpdateVenue) return
+
+    const nextName = prompt('Edit location name:', existingVenue.name)
+    if (!nextName?.trim()) return
+    const nextAddress = prompt('Edit location address:', existingVenue.address)
+    if (!nextAddress?.trim()) return
+
+    try {
+      const venue = await onUpdateVenue(existingVenue.id, {
+        name: nextName.trim(),
+        address: nextAddress.trim(),
+      })
+      if (!venue) return
+      setLocation(venue.name)
+      setAddress(venue.address)
+    } catch {
+      alert('Failed to update location.')
+    }
   }
 
   const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
@@ -197,12 +258,22 @@ export function ShiftModal({
                 className="w-full px-3 py-2 border border-gray-border rounded-md"
                 required
               >
-                {VENUE_NAMES.map((venue) => (
+                {venueNames.map((venue) => (
                   <option key={venue} value={venue}>
                     {venue}
                   </option>
                 ))}
+                <option value="__add__">+ Add location…</option>
               </select>
+              {venues.some((venue) => venue.name === location) ? (
+                <button
+                  type="button"
+                  onClick={() => void handleEditLocation()}
+                  className="mt-2 text-xs font-medium text-teal hover:underline"
+                >
+                  Edit location
+                </button>
+              ) : null}
             </div>
 
             <div>

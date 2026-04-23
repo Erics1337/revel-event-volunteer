@@ -1,7 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import type { AvailableVolunteer, ShiftAssignment, VolunteerShift } from '@/lib/shifts/types'
+import type {
+  AvailableVolunteer,
+  ShiftAssignment,
+  VenueRecord,
+  VolunteerShift,
+} from '@/lib/shifts/types'
 
 export interface ShiftEditorInput {
   id?: string
@@ -19,6 +24,7 @@ export function useShiftAdminData() {
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([])
   const [volunteers, setVolunteers] = useState<AvailableVolunteer[]>([])
+  const [venues, setVenues] = useState<VenueRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,16 +32,18 @@ export function useShiftAdminData() {
     setError(null)
 
     try {
-      const [shiftsRes, assignmentsRes, volunteersRes] = await Promise.all([
+      const [shiftsRes, assignmentsRes, volunteersRes, venuesRes] = await Promise.all([
         fetch('/api/admin/shifts'),
         fetch('/api/admin/shifts/assignments'),
         fetch('/api/admin/volunteers/available'),
+        fetch('/api/admin/venues'),
       ])
 
-      const [shiftsData, assignmentsData, volunteersData] = await Promise.all([
+      const [shiftsData, assignmentsData, volunteersData, venuesData] = await Promise.all([
         shiftsRes.json(),
         assignmentsRes.json(),
         volunteersRes.json(),
+        venuesRes.json(),
       ])
 
       if (!shiftsRes.ok) throw new Error(shiftsData.error || 'Failed to load shifts')
@@ -45,10 +53,14 @@ export function useShiftAdminData() {
       if (!volunteersRes.ok) {
         throw new Error(volunteersData.error || 'Failed to load volunteers')
       }
+      if (!venuesRes.ok) {
+        throw new Error(venuesData.error || 'Failed to load venues')
+      }
 
       setShifts((shiftsData.shifts || []) as VolunteerShift[])
       setAssignments((assignmentsData.assignments || []) as ShiftAssignment[])
       setVolunteers((volunteersData.volunteers || []) as AvailableVolunteer[])
+      setVenues((venuesData.venues || []) as VenueRecord[])
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to load shift data')
     } finally {
@@ -120,7 +132,7 @@ export function useShiftAdminData() {
     setShifts((payload.shifts || []) as VolunteerShift[])
   }, [])
 
-  const importCsv = useCallback(async (file: File) => {
+  const importFile = useCallback(async (file: File) => {
     const formData = new FormData()
     formData.set('file', file)
 
@@ -137,6 +149,44 @@ export function useShiftAdminData() {
     await refresh()
     return payload.imported as number | undefined
   }, [refresh])
+
+  const createVenue = useCallback(
+    async (values: { name: string; address: string }) => {
+      const response = await fetch('/api/admin/venues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to create venue')
+      }
+
+      await refresh()
+      return payload.venue as VenueRecord | undefined
+    },
+    [refresh]
+  )
+
+  const updateVenue = useCallback(
+    async (id: string, values: { name: string; address: string }) => {
+      const response = await fetch(`/api/admin/venues/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to update venue')
+      }
+
+      await refresh()
+      return payload.venue as VenueRecord | undefined
+    },
+    [refresh]
+  )
 
   const assignVolunteer = useCallback(async (shiftId: string, volunteerId: string) => {
     const response = await fetch('/api/volunteers/assign', {
@@ -171,6 +221,7 @@ export function useShiftAdminData() {
     shifts,
     assignments,
     volunteers,
+    venues,
     loading,
     error,
     refresh,
@@ -178,7 +229,9 @@ export function useShiftAdminData() {
     updateShift,
     deleteShift,
     saveSpreadsheet,
-    importCsv,
+    importFile,
+    createVenue,
+    updateVenue,
     assignVolunteer,
     unassignVolunteer,
   }

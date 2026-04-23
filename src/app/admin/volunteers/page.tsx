@@ -16,6 +16,7 @@ import { VolunteerTable } from '@/components/admin/VolunteerTable'
 import { MessageModal } from '@/components/admin/MessageModal'
 import { AssignmentActions } from '@/components/admin/AssignmentActions'
 import { isAdmin } from '@/lib/auth/roles'
+import { AdminHeader } from '@/components/admin/AdminHeader'
 import type {
   AvailableVolunteer,
   ShiftAssignment,
@@ -476,40 +477,7 @@ export default function AdminVolunteersPage() {
 
   return (
     <div className="min-h-screen bg-gray-light">
-      <header className="bg-white border-b border-gray-border">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
-            <h1 className="text-xl font-bold text-charcoal">Revel Events Admin</h1>
-          </div>
-
-          <nav className="flex items-center gap-6">
-            <Link href="/admin" className="text-gray-text hover:text-teal transition-colors">
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/users"
-              className="text-gray-text hover:text-teal transition-colors"
-            >
-              Users
-            </Link>
-            <Link href="/admin/volunteers" className="text-teal font-medium">
-              Volunteers
-            </Link>
-            <Link
-              href="/admin/shifts"
-              className="text-gray-text hover:text-teal transition-colors"
-            >
-              Shifts
-            </Link>
-            <Link href="/profile" className="text-gray-text hover:text-teal transition-colors">
-              Profile
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <AdminHeader />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-4">

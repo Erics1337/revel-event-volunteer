@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { isAdmin } from '@/lib/auth/roles'
 import type { Database } from '@/lib/supabase/database.types'
+import { AdminHeader } from '@/components/admin/AdminHeader'
 
 type AdminUser = Pick<
   Database['public']['Tables']['users']['Row'],
@@ -311,46 +312,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-gray-light">
-      <header className="bg-white border-b border-gray-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
-            <h1 className="text-xl font-bold text-charcoal">Revel Events Admin</h1>
-          </div>
-
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/" className="text-gray-text hover:text-teal transition-colors">
-              Home
-            </Link>
-            <Link href="/admin" className="text-gray-text hover:text-teal transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/admin/users" className="text-teal font-medium">
-              Users
-            </Link>
-            <Link
-              href="/admin/volunteers"
-              className="text-gray-text hover:text-teal transition-colors"
-            >
-              Volunteers
-            </Link>
-            <Link
-              href="/admin/shifts"
-              className="text-gray-text hover:text-teal transition-colors"
-            >
-              Shifts
-            </Link>
-            <Link
-              href="/profile"
-              className="text-gray-text hover:text-teal transition-colors"
-            >
-              Profile
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <AdminHeader />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <section className="mb-8 rounded-[28px] border border-teal-200 bg-[linear-gradient(135deg,#f0fdfa_0%,#ffffff_42%,#fff7ed_100%)] p-6 shadow-[0_18px_40px_rgba(20,184,166,0.08)]">
