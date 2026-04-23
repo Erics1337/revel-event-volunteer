@@ -158,7 +158,7 @@ export type Database = {
           created_at: string | null
           id: string
           maps_url: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at: string | null
         }
         Insert: {
@@ -167,7 +167,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name: string
+          name: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Update: {
@@ -176,7 +176,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           maps_url?: string | null
-          name?: string
+          name?: Database["public"]["Enums"]["venue_name"]
           updated_at?: string | null
         }
         Relationships: []
@@ -228,9 +228,9 @@ export type Database = {
           end_time: string
           filled_slots: number | null
           id: string
-          location: string
+          location: Database["public"]["Enums"]["venue_name"]
           notes: string | null
-          role: string
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -241,9 +241,9 @@ export type Database = {
           end_time: string
           filled_slots?: number | null
           id?: string
-          location: string
+          location: Database["public"]["Enums"]["venue_name"]
           notes?: string | null
-          role: string
+          role: Database["public"]["Enums"]["shift_role"]
           start_time: string
           total_slots: number
         }
@@ -254,9 +254,9 @@ export type Database = {
           end_time?: string
           filled_slots?: number | null
           id?: string
-          location?: string
+          location?: Database["public"]["Enums"]["venue_name"]
           notes?: string | null
-          role?: string
+          role?: Database["public"]["Enums"]["shift_role"]
           start_time?: string
           total_slots?: number
         }
@@ -308,7 +308,18 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      shift_role:
+        | "ALL DAY - LOCATION CAPTAIN"
+        | "Building Runner"
+        | "Room Runner"
+        | "Volunteer Hub / Door Monitor"
+      venue_name:
+        | "Boulder Associates"
+        | "Boulder Public Library"
+        | "Brand Studios"
+        | "Canyon Center"
+        | "Rosetta Hall"
+        | "SOVRN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -439,7 +450,21 @@ export const Constants = {
   },
   public: {
     Enums: {
-      // No public enums remain after converting venue and role fields to text.
+      shift_role: [
+        "ALL DAY - LOCATION CAPTAIN",
+        "Building Runner",
+        "Room Runner",
+        "Volunteer Hub / Door Monitor",
+      ],
+      venue_name: [
+        "Boulder Associates",
+        "Boulder Public Library",
+        "Brand Studios",
+        "Canyon Center",
+        "Rosetta Hall",
+        "SOVRN",
+      ],
     },
   },
 } as const
+
