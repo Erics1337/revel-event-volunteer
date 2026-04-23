@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
 
     if (!isAdmin(profile?.role)) {
       const url = request.nextUrl.clone()
-      url.pathname = '/volunteers'
+      url.pathname = '/open-shifts'
       return NextResponse.redirect(url)
     }
   }

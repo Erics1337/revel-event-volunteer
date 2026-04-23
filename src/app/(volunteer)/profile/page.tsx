@@ -356,7 +356,7 @@ export default function ProfilePage() {
               Find an open slot that fits your schedule and request it.
             </p>
             <Link
-              href="/volunteers"
+              href="/open-shifts"
               className="font-medium text-teal hover:underline"
             >
               Open shifts →

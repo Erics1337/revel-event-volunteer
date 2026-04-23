@@ -93,16 +93,16 @@ export async function PUT(request: Request) {
     : ''
   const phone = typeof (body as { phone?: unknown }).phone === 'string'
     ? (body as { phone: string }).phone.trim()
-    : ''
+    : null
   const availability = Array.isArray((body as { availability?: unknown }).availability)
     ? (body as { availability: unknown[] }).availability.filter(
-        (value): value is string => typeof value === 'string' && VALID_DAYS.has(value as any)
+        (value): value is string => typeof value === 'string' && VALID_DAYS.has(value)
       )
     : []
 
   const { data: existingUser, error: existingUserError } = await supabase
     .from('users')
-    .select('name')
+    .select('name, phone')
     .eq('id', user.id)
     .single()
 
@@ -116,7 +116,19 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   }
 
-  if (!phone) {
+  const { data: existingVolunteer, error: existingVolunteerError } = await supabase
+    .from('volunteers')
+    .select('id, phone')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existingVolunteerError) {
+    return NextResponse.json({ error: existingVolunteerError.message }, { status: 500 })
+  }
+
+  const resolvedPhone = phone ?? existingUser.phone?.trim() ?? existingVolunteer?.phone?.trim() ?? ''
+
+  if (!resolvedPhone) {
     return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
   }
 
@@ -131,7 +143,7 @@ export async function PUT(request: Request) {
     .from('users')
     .update({
       name: resolvedName,
-      phone,
+      phone: resolvedPhone,
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)
@@ -140,19 +152,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: userUpdateError.message }, { status: 500 })
   }
 
-  const { data: existingVolunteer, error: existingVolunteerError } = await supabase
-    .from('volunteers')
-    .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (existingVolunteerError) {
-    return NextResponse.json({ error: existingVolunteerError.message }, { status: 500 })
-  }
-
   const payload = {
     user_id: user.id,
-    phone,
+    phone: resolvedPhone,
     availability,
     status: 'confirmed',
   }

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { OpenShiftsCalendar } from '@/components/volunteer/OpenShiftsCalendar'
 import { useAuth } from '@/contexts/auth-context'
 import type { AssignmentStatus } from '@/lib/shifts/types'
 import { EVENT_DAYS } from '@/lib/shifts/types'
@@ -56,9 +57,9 @@ interface VolunteerContextResponse {
   error?: string
 }
 
-export default function VolunteerPortal() {
+export function OpenShiftsPage() {
   const router = useRouter()
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [loading, setLoading] = useState(true)
   const [contextLoading, setContextLoading] = useState(true)
@@ -75,6 +76,9 @@ export default function VolunteerPortal() {
   const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [calendarDay, setCalendarDay] = useState<string>(EVENT_DAYS[0]?.date ?? '')
+  const shiftCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const hasLoadedInitialSetupAvailability = useRef(false)
 
   const loadShifts = useCallback(async () => {
     const response = await fetch('/api/volunteers/shifts')
@@ -145,6 +149,17 @@ export default function VolunteerPortal() {
     [activeAssignments]
   )
 
+  const assignmentStatusByShiftId = useMemo(
+    () =>
+      new Map(
+        activeAssignments.map((assignment) => [assignment.shift_id, assignment.status] satisfies [
+          string,
+          AssignmentStatus,
+        ])
+      ),
+    [activeAssignments]
+  )
+
   const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
   const hasVolunteerSetup = Boolean(availability.length > 0)
   const showSetupPanel = Boolean(user && (setupOpen || !hasVolunteerSetup))
@@ -164,6 +179,16 @@ export default function VolunteerPortal() {
       }),
     [availability, selectedDay, selectedLocation, selectedRole, selectedTime, shifts, showAvailabilityOnly]
   )
+
+  const filteredDays = useMemo(
+    () => Array.from(new Set(filtered.map((shift) => shift.day))).sort((a, b) => a.localeCompare(b)),
+    [filtered]
+  )
+
+  const activeCalendarDay = useMemo(() => {
+    if (filteredDays.length === 0) return ''
+    return filteredDays.includes(calendarDay) ? calendarDay : filteredDays[0]
+  }, [calendarDay, filteredDays])
 
   const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
   const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
@@ -194,7 +219,12 @@ export default function VolunteerPortal() {
     setSelectedTime([])
   }
 
-
+  const setupHasChanges = useMemo(
+    () =>
+      availability.length !== setupAvailability.length ||
+      availability.some((day) => !setupAvailability.includes(day)),
+    [availability, setupAvailability]
+  )
 
   const handleSetupAvailabilityToggle = (day: string) => {
     setSetupAvailability((current) =>
@@ -202,7 +232,7 @@ export default function VolunteerPortal() {
     )
   }
 
-  const handleSaveSetup = async () => {
+  const handleSaveSetup = useCallback(async () => {
     setSavingSetup(true)
     setErrorMessage(null)
     setMessage(null)
@@ -226,17 +256,46 @@ export default function VolunteerPortal() {
       }
 
       setVolunteer(payload.volunteer ?? null)
-      setSetupOpen(false)
-      setMessage('Volunteer setup saved. You can request shifts now.')
+      setMessage('Volunteer settings saved.')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to save volunteer setup')
     } finally {
       setSavingSetup(false)
     }
-  }
+  }, [setupAvailability])
+
+  useEffect(() => {
+    if (!user) return
+    if (!hasLoadedInitialSetupAvailability.current) {
+      hasLoadedInitialSetupAvailability.current = true
+      return
+    }
+    if (!showSetupPanel || !setupHasChanges || savingSetup) return
+
+    if (setupAvailability.length === 0) return
+
+    const timeoutId = window.setTimeout(() => {
+      void handleSaveSetup()
+    }, 500)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [handleSaveSetup, savingSetup, setupAvailability, setupHasChanges, showSetupPanel, user])
+
+  useEffect(() => {
+    if (!message) return
+    const timeoutId = window.setTimeout(() => {
+      setMessage(null)
+    }, 2200)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [message])
 
   const redirectToSignIn = () => {
-    router.push('/auth/login?redirectTo=/volunteers')
+    router.push('/auth/login?redirectTo=/open-shifts')
   }
 
   const handlePrimaryAction = async (shift: VolunteerShift) => {
@@ -268,7 +327,7 @@ export default function VolunteerPortal() {
         throw new Error(payload.error || 'Failed to submit volunteer request')
       }
 
-      await loadContext()
+      await Promise.all([loadShifts(), loadContext()])
       setMessage('Shift assigned. We saved it to your volunteer portal.')
     } catch (error) {
       setErrorMessage(
@@ -307,7 +366,17 @@ export default function VolunteerPortal() {
     }
   }
 
+  const handleSelectShiftFromCalendar = (shiftId: string) => {
+    const shift = filtered.find((item) => item.id === shiftId)
+    if (shift) {
+      setSelectedDay([shift.day])
+    }
 
+    const element = shiftCardRefs.current[shiftId]
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
   if (loading || authLoading || contextLoading) {
     return (
@@ -336,13 +405,12 @@ export default function VolunteerPortal() {
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
             {openCount} shifts still need coverage. Request a role, save your availability, and keep your volunteer plan in one place.
           </p>
-
         </div>
       </section>
 
       <main className="mx-auto max-w-4xl px-4 py-4 md:py-4">
         {message && (
-          <div className="mb-4 rounded-md border border-[#cde7e7] bg-[#eef8f8] px-4 py-3 text-sm text-[#2f6d71]">
+          <div className="fixed right-4 top-20 z-40 rounded-md border border-[#cde7e7] bg-[#eef8f8] px-4 py-3 text-sm text-[#2f6d71] shadow-[0_10px_30px_rgba(47,109,113,0.18)]">
             {message}
           </div>
         )}
@@ -381,7 +449,7 @@ export default function VolunteerPortal() {
                 'Showing all shifts'
               )}
             </p>
-            <div className="flex items-center gap-4 text-sm shrink-0">
+            <div className="flex shrink-0 items-center gap-4 text-sm">
               <button
                 onClick={() => setOnlyMyAvailability((current) => !current)}
                 className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
@@ -410,7 +478,7 @@ export default function VolunteerPortal() {
                   Volunteer setup
                 </h2>
                 <p className="mt-1 text-sm text-[#6f7883]">
-                  Save the days you can help so shift requests line up with your availability.
+                  Your availability saves automatically as you update it.
                 </p>
               </div>
               {hasVolunteerSetup && (
@@ -447,14 +515,16 @@ export default function VolunteerPortal() {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleSaveSetup}
-                disabled={savingSetup}
-                className="rounded-sm bg-[#ef8f3d] px-5 py-2.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[1px_1px_0_rgba(26,26,26,0.85)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingSetup ? 'Saving...' : hasVolunteerSetup ? 'Save settings' : 'Become a volunteer'}
-              </button>
+            <div className="mt-4 min-h-5 text-sm text-[#6f7883]">
+              {setupAvailability.length === 0
+                ? 'Choose at least one day to finish setup.'
+                : savingSetup
+                  ? 'Saving availability...'
+                  : setupHasChanges
+                    ? 'Saving changes...'
+                    : hasVolunteerSetup
+                      ? 'Saved'
+                      : 'Pick the days you can help and we will save them automatically.'}
             </div>
           </section>
         )}
@@ -492,6 +562,17 @@ export default function VolunteerPortal() {
           </div>
         </div>
 
+        {filteredDays.length > 0 && activeCalendarDay ? (
+          <OpenShiftsCalendar
+            shifts={filtered}
+            activeDay={activeCalendarDay}
+            availableDays={filteredDays}
+            assignmentStatusByShiftId={assignmentStatusByShiftId}
+            onActiveDayChange={setCalendarDay}
+            onSelectShift={handleSelectShiftFromCalendar}
+          />
+        ) : null}
+
         <div className="mb-3 mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-[#7f8691]">
             {filtered.length} shift{filtered.length !== 1 ? 's' : ''}
@@ -520,14 +601,20 @@ export default function VolunteerPortal() {
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {urgentShifts.map((shift) => (
-                  <ShiftCard
+                  <div
                     key={shift.id}
-                    shift={shift}
-                    relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                    submitting={submittingShiftId === shift.id}
-                    onRequest={() => handlePrimaryAction(shift)}
-                    onCancel={() => handleCancel(shift)}
-                  />
+                    ref={(element) => {
+                      shiftCardRefs.current[shift.id] = element
+                    }}
+                  >
+                    <ShiftCard
+                      shift={shift}
+                      relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                      submitting={submittingShiftId === shift.id}
+                      onRequest={() => handlePrimaryAction(shift)}
+                      onCancel={() => handleCancel(shift)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -537,14 +624,20 @@ export default function VolunteerPortal() {
         {filtered.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {filtered.map((shift) => (
-              <ShiftCard
+              <div
                 key={shift.id}
-                shift={shift}
-                relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                submitting={submittingShiftId === shift.id}
-                onRequest={() => handlePrimaryAction(shift)}
-                onCancel={() => handleCancel(shift)}
-              />
+                ref={(element) => {
+                  shiftCardRefs.current[shift.id] = element
+                }}
+              >
+                <ShiftCard
+                  shift={shift}
+                  relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                  submitting={submittingShiftId === shift.id}
+                  onRequest={() => handlePrimaryAction(shift)}
+                  onCancel={() => handleCancel(shift)}
+                />
+              </div>
             ))}
           </div>
         ) : (
@@ -569,8 +662,6 @@ export default function VolunteerPortal() {
           </div>
         )}
       </main>
-
-
     </>
   )
 }
@@ -603,25 +694,26 @@ function FilterMultiSelect({
 
   const handleToggle = (value: string) => {
     if (values.includes(value)) {
-      onChange(values.filter((v) => v !== value))
+      onChange(values.filter((item) => item !== value))
     } else {
       onChange([...values, value])
     }
   }
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleClear = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
     onChange([])
   }
 
-  const displayValue = values.length === 0 
-    ? placeholder 
-    : values.length === 1 
-      ? options.find(o => o.value === values[0])?.label 
-      : `${values.length} selected`
+  const displayValue =
+    values.length === 0
+      ? placeholder
+      : values.length === 1
+        ? options.find((option) => option.value === values[0])?.label
+        : `${values.length} selected`
 
   return (
-    <div className="flex flex-col gap-1 relative" ref={containerRef}>
+    <div className="relative flex flex-col gap-1" ref={containerRef}>
       <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
         {label}
       </span>
@@ -632,14 +724,20 @@ function FilterMultiSelect({
         <span className="truncate pr-2">{displayValue}</span>
         <div className="flex items-center gap-1">
           {values.length > 0 && (
-            <button 
+            <button
+              type="button"
               onClick={handleClear}
               className="text-[#a0a6af] hover:text-[#505966]"
             >
-              ×
+              <CloseIcon />
             </button>
           )}
-          <svg className={`h-4 w-4 text-[#a0a6af] transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className={`h-4 w-4 text-[#a0a6af] transition-transform ${open ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -722,7 +820,7 @@ function ShiftCard({
                     className="absolute right-2 top-2 text-[#a0a6af] transition hover:text-[#3f4a56]"
                     aria-label="Close role details"
                   >
-                    ×
+                    <CloseIcon />
                   </button>
                 </div>
               )}

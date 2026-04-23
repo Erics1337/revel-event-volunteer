@@ -50,7 +50,7 @@ const IMPACT_STATS = [
 const PUBLIC_NAV_LINKS = [
   { href: '#why-volunteer', label: 'Why Volunteer' },
   { href: '#how-it-works', label: 'How It Works' },
-  { href: '/volunteers', label: 'Open Shifts' },
+  { href: '/open-shifts', label: 'Open Shifts' },
 ] as const
 
 const AUTH_NAV_LINKS = [
@@ -61,11 +61,11 @@ const AUTH_NAV_LINKS = [
 export default function Home() {
   const { user, profile, loading, signOut } = useAuth()
   const primaryCta = user
-    ? { href: '/volunteers', label: 'Browse Open Shifts' }
+    ? { href: '/open-shifts', label: 'Browse Open Shifts' }
     : { href: '/auth/login', label: 'Get Started' }
   const secondaryCta = user
     ? { href: '/schedule', label: 'My Schedule' }
-    : { href: '/volunteers', label: 'See Open Shifts' }
+    : { href: '/open-shifts', label: 'See Open Shifts' }
 
   const handleSignOut = async () => {
     await signOut()
@@ -294,7 +294,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <Link href="/volunteers" className="btn-secondary inline-flex items-center justify-center self-start">
+              <Link href="/open-shifts" className="btn-secondary inline-flex items-center justify-center self-start">
                 Browse volunteer roles
               </Link>
             </div>
@@ -389,7 +389,7 @@ export default function Home() {
                     Need the details?
                   </p>
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                    <Link href="/volunteers" className="btn-primary inline-flex items-center justify-center">
+                    <Link href="/open-shifts" className="btn-primary inline-flex items-center justify-center">
                       Open volunteer portal
                     </Link>
                     <Link href="/schedule" className="btn-secondary inline-flex items-center justify-center">
@@ -442,7 +442,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-gray-text sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <p>Open source • MIT License • Built by builders, for builders</p>
           <div className="flex flex-wrap gap-4">
-            <Link href="/volunteers" className="transition hover:text-teal">
+            <Link href="/open-shifts" className="transition hover:text-teal">
               Volunteer portal
             </Link>
             <Link href="/schedule" className="transition hover:text-teal">

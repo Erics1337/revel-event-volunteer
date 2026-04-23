@@ -73,7 +73,7 @@ export function volunteerConfirmationTemplate(shift: Shift, volunteer: Volunteer
     
     <p>You'll receive reminder emails 24 hours and 1 hour before your shift.</p>
     
-    <a href="https://boulderstartupweek.com/volunteers" style="${emailStyles.button}">View My Shifts</a>
+    <a href="https://boulderstartupweek.com/open-shifts" style="${emailStyles.button}">View My Shifts</a>
     
     <div style="${emailStyles.footer}">
       <p>Questions? Reply to this email or contact the volunteer team.</p>
@@ -95,7 +95,7 @@ Location: ${shift.location}
 
 You'll receive reminder emails 24 hours and 1 hour before your shift.
 
-View your shifts: https://boulderstartupweek.com/volunteers
+View your shifts: https://boulderstartupweek.com/open-shifts
 
 Questions? Reply to this email or contact the volunteer team.
 
@@ -135,7 +135,7 @@ export function reminder24hTemplate(shift: Shift, volunteer: Volunteer) {
     
     <p style="margin-top: 20px;"><strong>Can't make it?</strong> Please cancel ASAP so we can find a replacement.</p>
     
-    <a href="https://boulderstartupweek.com/volunteers" style="${emailStyles.button}">Manage My Shifts</a>
+    <a href="https://boulderstartupweek.com/open-shifts" style="${emailStyles.button}">Manage My Shifts</a>
     
     <div style="${emailStyles.footer}">
       <p>Boulder Startup Week · May 4–8, 2026</p>
@@ -160,7 +160,7 @@ Please arrive 15 minutes early. You'll get another reminder 1 hour before your s
 
 Can't make it? Please cancel ASAP so we can find a replacement.
 
-Manage your shifts: https://boulderstartupweek.com/volunteers
+Manage your shifts: https://boulderstartupweek.com/open-shifts
 
 Boulder Startup Week · May 4–8, 2026`
 

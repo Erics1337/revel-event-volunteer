@@ -254,7 +254,7 @@ export default function SchedulePage() {
               </a>
             )}
             <Link
-              href="/volunteers"
+              href="/open-shifts"
               className="inline-flex rounded-sm border border-white/45 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/12"
             >
               Open shifts
@@ -277,7 +277,7 @@ export default function SchedulePage() {
               You haven’t requested or claimed any shifts yet.
             </p>
             <Link
-              href="/volunteers"
+              href="/open-shifts"
               className="inline-block bg-teal-500 text-white px-6 py-3 rounded-md font-medium hover:bg-teal-600 transition-colors"
             >
               Open shifts

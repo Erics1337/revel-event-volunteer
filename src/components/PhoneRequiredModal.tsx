@@ -118,7 +118,7 @@ function RequiredProfileModalBody({
 
     const timeoutId = window.setTimeout(() => {
       window.sessionStorage.removeItem(completionStorageKey)
-      router.push('/volunteers')
+      router.push('/open-shifts')
     }, 1200)
 
     return () => {
@@ -129,7 +129,7 @@ function RequiredProfileModalBody({
   const handleBrowseOpenShifts = () => {
     window.sessionStorage.removeItem(completionStorageKey)
     setCompleted(false)
-    router.push('/volunteers')
+    router.push('/open-shifts')
   }
 
   if (!availabilityLoaded) return null

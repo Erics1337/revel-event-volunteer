@@ -8,7 +8,7 @@ import Image from 'next/image'
 import bswLogo from '../../public/bsw-logo-BUCTZ2oQ.png'
 
 const MAIN_NAV_LINKS = [
-  { href: '/volunteers', label: 'Open Shifts' },
+  { href: '/open-shifts', label: 'Open Shifts' },
   { href: '/schedule', label: 'My Schedule' },
   { href: '/profile', label: 'Profile' },
 ] as const
@@ -16,7 +16,7 @@ const MAIN_NAV_LINKS = [
 function isActiveLink(pathname: string, href: string) {
   if (pathname === href) return true
   // Preserve `/events` as a friendly alias for the open shifts browser.
-  return href === '/volunteers' && pathname === '/events'
+  return href === '/open-shifts' && pathname === '/events'
 }
 
 interface NavbarProps {
@@ -79,9 +79,9 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
 
           <div className="flex items-center gap-2">
             <Link
-              href="/volunteers"
+              href="/open-shifts"
               className={`rounded-sm px-3 py-1.5 text-sm font-medium transition ${
-                pathname === '/volunteers' || pathname === '/schedule'
+                pathname === '/open-shifts' || pathname === '/schedule'
                   ? 'bg-[#eef8f8] text-[#6aa9ae]'
                   : 'text-[#6f7883] hover:bg-[#f0f2ef] hover:text-[#5aaeb3]'
               }`}
@@ -118,7 +118,7 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
       <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
-            href="/volunteers"
+            href="/open-shifts"
             className="text-lg font-bold tracking-tight text-[#6aa9ae]"
             style={{ fontFamily: 'var(--font-accent)' }}
           >
