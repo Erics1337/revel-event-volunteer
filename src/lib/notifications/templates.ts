@@ -5,6 +5,7 @@ interface Shift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
 }
 
 interface Volunteer {
@@ -29,6 +30,10 @@ function formatTime(time: string): string {
   const ampm = hour >= 12 ? 'PM' : 'AM'
   const displayHour = hour % 12 || 12
   return `${displayHour}:${minutes} ${ampm}`
+}
+
+function formatLocation(shift: Shift): string {
+  return shift.address ? `${shift.location}, ${shift.address}` : shift.location
 }
 
 const emailStyles = {
@@ -68,7 +73,7 @@ export function volunteerConfirmationTemplate(shift: Shift, volunteer: Volunteer
       <p style="${emailStyles.shiftRole}">${shift.role}</p>
       <p style="${emailStyles.shiftDetail}"><strong>Date:</strong> ${formatDay(shift.day)}</p>
       <p style="${emailStyles.shiftDetail}"><strong>Time:</strong> ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}</p>
-      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${shift.location}</p>
+      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${formatLocation(shift)}</p>
     </div>
     
     <p>You'll receive reminder emails 24 hours and 1 hour before your shift.</p>
@@ -91,7 +96,7 @@ Thanks for volunteering! You're confirmed for:
 ${shift.role}
 Date: ${formatDay(shift.day)}
 Time: ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}
-Location: ${shift.location}
+Location: ${formatLocation(shift)}
 
 You'll receive reminder emails 24 hours and 1 hour before your shift.
 
@@ -128,7 +133,7 @@ export function reminder24hTemplate(shift: Shift, volunteer: Volunteer) {
       <p style="${emailStyles.shiftRole}">${shift.role}</p>
       <p style="${emailStyles.shiftDetail}"><strong>Date:</strong> ${formatDay(shift.day)}</p>
       <p style="${emailStyles.shiftDetail}"><strong>Time:</strong> ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}</p>
-      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${shift.location}</p>
+      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${formatLocation(shift)}</p>
     </div>
     
     <p>Please arrive 15 minutes early. You'll get another reminder 1 hour before your shift starts.</p>
@@ -154,7 +159,7 @@ This is a friendly reminder that you have a volunteer shift tomorrow:
 ${shift.role}
 Date: ${formatDay(shift.day)}
 Time: ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}
-Location: ${shift.location}
+Location: ${formatLocation(shift)}
 
 Please arrive 15 minutes early. You'll get another reminder 1 hour before your shift starts.
 
@@ -190,7 +195,7 @@ export function reminder1hTemplate(shift: Shift, volunteer: Volunteer) {
     <div style="${emailStyles.shiftBox}">
       <p style="${emailStyles.shiftRole}">${shift.role}</p>
       <p style="${emailStyles.shiftDetail}"><strong>Time:</strong> ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}</p>
-      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${shift.location}</p>
+      <p style="${emailStyles.shiftDetail}"><strong>Location:</strong> ${formatLocation(shift)}</p>
     </div>
     
     <p>See you there!</p>
@@ -211,7 +216,7 @@ Your volunteer shift starts in about 1 hour:
 
 ${shift.role}
 Time: ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}
-Location: ${shift.location}
+Location: ${formatLocation(shift)}
 
 See you there!
 

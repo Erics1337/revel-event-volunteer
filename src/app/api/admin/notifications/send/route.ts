@@ -2,6 +2,39 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/auth/roles'
 import { sendBulkMessage } from '@/lib/notifications/dispatcher'
+import { DEFAULT_REMINDER_SETTINGS } from '@/lib/notifications/reminder-settings'
+
+function getTimeZoneOffsetMilliseconds(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+
+  const parts = formatter.formatToParts(date)
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  )
+
+  return asUtc - date.getTime()
+}
+
+function getStartOfDaySchedule(day: string, timeZone: string) {
+  const guess = new Date(`${day}T00:00:00Z`)
+  const offset = getTimeZoneOffsetMilliseconds(guess, timeZone)
+  return new Date(guess.getTime() - offset).toISOString()
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -53,13 +86,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No volunteers found matching criteria' }, { status: 400 })
     }
 
-    const result = await sendBulkMessage(targetVolunteerIds, subject, message)
+    const scheduledFor =
+      typeof filters?.day === 'string'
+        ? getStartOfDaySchedule(filters.day, DEFAULT_REMINDER_SETTINGS.time_zone)
+        : undefined
+
+    const result = await sendBulkMessage(targetVolunteerIds, subject, message, {
+      scheduledFor,
+    })
 
     return NextResponse.json({
       success: true,
       sent: result.sent,
       failed: result.failed,
+      queued: result.queued,
       total: targetVolunteerIds.length,
+      scheduledFor: result.scheduledFor,
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runReminderDispatch } from '@/lib/notifications/dispatcher'
+import { runReminderDispatch, sendPendingNotifications } from '@/lib/notifications/dispatcher'
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await runReminderDispatch({ sendImmediately: true })
+    const scheduledResults = await sendPendingNotifications()
 
     return NextResponse.json({
       success: true,
@@ -20,6 +21,8 @@ export async function GET(request: Request) {
       failed: result.failed,
       skipped: result.skipped,
       counts: result.counts,
+      scheduled_sent: scheduledResults.filter((entry) => entry.success).length,
+      scheduled_failed: scheduledResults.filter((entry) => !entry.success).length,
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

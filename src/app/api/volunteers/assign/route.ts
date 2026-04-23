@@ -50,12 +50,19 @@ export async function POST(request: Request) {
       await Promise.all([
         supabase
           .from('volunteer_shifts')
-          .select('id, day, total_slots, filled_slots')
+          .select('id, day, start_time, end_time, total_slots, filled_slots')
           .eq('id', shiftId)
           .single(),
         supabase
           .from('volunteers')
-          .select('id, availability, status')
+          .select(`
+            id,
+            availability,
+            status,
+            users (
+              blocked
+            )
+          `)
           .eq('id', volunteerId)
           .single(),
       ])
@@ -74,6 +81,15 @@ export async function POST(request: Request) {
     if (volunteer.status !== 'confirmed') {
       return NextResponse.json(
         { error: 'Only confirmed volunteers can be assigned to shifts' },
+        { status: 409 }
+      )
+    }
+
+    const userRow = Array.isArray(volunteer.users) ? volunteer.users[0] : volunteer.users
+
+    if (userRow?.blocked) {
+      return NextResponse.json(
+        { error: 'Blocked volunteers cannot be assigned to shifts' },
         { status: 409 }
       )
     }
@@ -102,6 +118,65 @@ export async function POST(request: Request) {
 
     if (existingAssignment?.status === 'assigned') {
       return NextResponse.json({ error: 'Already assigned to this shift' }, { status: 409 })
+    }
+
+    const { data: activeAssignments, error: activeAssignmentsError } = await supabase
+      .from('volunteer_assignments')
+      .select(`
+        id,
+        status,
+        shift_id,
+        shift:volunteer_shifts!inner (
+          id,
+          day,
+          start_time,
+          end_time,
+          role,
+          location
+        )
+      `)
+      .eq('volunteer_id', volunteerId)
+      .in('status', ['requested', 'assigned'])
+      .eq('shift.day', shift.day)
+
+    if (activeAssignmentsError) {
+      return NextResponse.json({ error: activeAssignmentsError.message }, { status: 500 })
+    }
+
+    const overlappingAssignment = activeAssignments?.find((assignment) => {
+      if (!assignment.shift) return false
+      if (assignment.shift_id === shiftId) return false
+
+      const assignedShift = Array.isArray(assignment.shift) ? assignment.shift[0] : assignment.shift
+      if (!assignedShift) return false
+
+      return (
+        shift.start_time < assignedShift.end_time &&
+        assignedShift.start_time < shift.end_time
+      )
+    })
+
+    if (overlappingAssignment) {
+      const conflictingShift = Array.isArray(overlappingAssignment.shift)
+        ? overlappingAssignment.shift[0]
+        : overlappingAssignment.shift
+
+      return NextResponse.json(
+        {
+          error: 'Volunteer is already committed to an overlapping shift',
+          conflictingShift: conflictingShift
+            ? {
+                role: conflictingShift.role,
+                day: conflictingShift.day,
+                start_time: conflictingShift.start_time,
+                end_time: conflictingShift.end_time,
+                location: conflictingShift.location,
+                status: overlappingAssignment.status,
+              }
+            : null,
+        },
+        { status: 409 }
+      )
     }
 
     const mutation = existingAssignment

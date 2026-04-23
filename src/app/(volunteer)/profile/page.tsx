@@ -113,7 +113,7 @@ export default function ProfilePage() {
         className="px-4 py-10 md:py-8"
         style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
       >
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-6xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/80">
             Volunteer Portal
           </p>
@@ -129,7 +129,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <main className="px-4 py-8 mx-auto max-w-4xl">
+      <main className="px-4 py-8 mx-auto max-w-6xl">
         <div className="mb-8">
           <h2 className="mb-2 text-3xl font-bold text-charcoal">My Profile</h2>
           <p className="text-gray-text">Manage your personal information and volunteer preferences.</p>

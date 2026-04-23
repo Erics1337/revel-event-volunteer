@@ -14,6 +14,7 @@ import { VolunteerFilters } from '@/components/admin/VolunteerFilters'
 import { VolunteerTable } from '@/components/admin/VolunteerTable'
 import { MessageModal } from '@/components/admin/MessageModal'
 import { AssignmentActions } from '@/components/admin/AssignmentActions'
+import { AdminCoverageCalendar } from '@/components/admin/AdminCoverageCalendar'
 import { isAdmin } from '@/lib/auth/roles'
 import { AdminHeader } from '@/components/admin/AdminHeader'
 import { DEFAULT_REMINDER_SETTINGS } from '@/lib/notifications/reminder-settings'
@@ -27,7 +28,6 @@ import { EVENT_DAYS } from '@/lib/shifts/types'
 type MessageTarget =
   | { kind: 'all' }
   | { kind: 'volunteer'; volunteerId: string }
-  | { kind: 'day'; day: string }
 
 interface ReminderResult {
   queued: number
@@ -54,9 +54,14 @@ interface ReminderPreviewState {
   }
 }
 
+interface SendMessageResponse {
+  error?: string
+}
+
 export default function AdminVolunteersPage() {
   const { user, profile, loading: authLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState('coverage')
+  const [activeTab, setActiveTab] = useState('volunteers')
+  const [coverageView, setCoverageView] = useState<'list' | 'calendar'>('calendar')
   const [volunteers, setVolunteers] = useState<AvailableVolunteer[]>([])
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([])
@@ -80,6 +85,22 @@ export default function AdminVolunteersPage() {
   const [reminderPreview, setReminderPreview] = useState<ReminderPreviewState | null>(null)
   const [savingReminderSettings, setSavingReminderSettings] = useState(false)
   const [manageShiftId, setManageShiftId] = useState<string | null>(null)
+  const [sendingShiftReminderId, setSendingShiftReminderId] = useState<string | null>(null)
+  const [coverageDay, setCoverageDay] = useState<string>(EVENT_DAYS[0]?.date ?? '')
+  const [scheduledMessageDay, setScheduledMessageDay] = useState<string>(EVENT_DAYS[0]?.date ?? '')
+  const [scheduledMessageSubject, setScheduledMessageSubject] = useState('')
+  const [scheduledMessageBody, setScheduledMessageBody] = useState('')
+  const [sendingScheduledMessage, setSendingScheduledMessage] = useState(false)
+  const [scheduledMessageNotice, setScheduledMessageNotice] = useState<string | null>(null)
+
+  const openReminderModal = useCallback((day?: string) => {
+    setReminderResult(null)
+    setScheduledMessageNotice(null)
+    if (day) {
+      setScheduledMessageDay(day)
+    }
+    setReminderModal(true)
+  }, [])
 
   const refresh = useCallback(async () => {
     setErrorMessage(null)
@@ -212,8 +233,18 @@ export default function AdminVolunteersPage() {
     [volunteers]
   )
 
+  const shiftById = useMemo(
+    () => new Map(shifts.map((shift) => [shift.id, shift])),
+    [shifts]
+  )
+
   const openShifts = useMemo(
     () => shifts.filter((shift) => shift.filled_slots < shift.total_slots),
+    [shifts]
+  )
+
+  const coveredShifts = useMemo(
+    () => shifts.filter((shift) => shift.filled_slots >= shift.total_slots),
     [shifts]
   )
 
@@ -235,6 +266,24 @@ export default function AdminVolunteersPage() {
     [assignments, volunteerById]
   )
 
+  const hasOverlappingAssignment = useCallback(
+    (shift: VolunteerShift, volunteerId: string) =>
+      assignments.some((assignment) => {
+        if (assignment.volunteer_id !== volunteerId) return false
+        if (assignment.status === 'cancelled') return false
+        if (assignment.shift_id === shift.id) return false
+
+        const assignedShift = shiftById.get(assignment.shift_id)
+        if (!assignedShift || assignedShift.day !== shift.day) return false
+
+        return (
+          shift.start_time < assignedShift.end_time &&
+          assignedShift.start_time < shift.end_time
+        )
+      }),
+    [assignments, shiftById]
+  )
+
   const getEligible = useCallback(
     (shift: VolunteerShift) => {
       const assignedIds = new Set(
@@ -246,11 +295,25 @@ export default function AdminVolunteersPage() {
       return volunteers.filter(
         (volunteer) =>
           volunteer.status === 'confirmed' &&
+          !volunteer.blocked &&
           volunteer.availability.includes(shift.day) &&
-          !assignedIds.has(volunteer.id)
+          !assignedIds.has(volunteer.id) &&
+          !hasOverlappingAssignment(shift, volunteer.id)
       )
     },
-    [assignments, volunteers]
+    [assignments, hasOverlappingAssignment, volunteers]
+  )
+
+  const getAutoAssignable = useCallback(
+    (shift: VolunteerShift) =>
+      [...getEligible(shift)].sort((left, right) => {
+        if (left.shift_count !== right.shift_count) {
+          return left.shift_count - right.shift_count
+        }
+
+        return left.name.localeCompare(right.name)
+      }),
+    [getEligible]
   )
 
   const toggleShiftFilter = (key: 'days' | 'locations' | 'roles', value: string) => {
@@ -305,6 +368,20 @@ export default function AdminVolunteersPage() {
     await refresh()
   }
 
+  const handleAutoAssignVolunteer = async (shift: VolunteerShift) => {
+    const candidate = getAutoAssignable(shift)[0]
+
+    if (!candidate) {
+      const message =
+        'No eligible volunteers are available who match this day and do not overlap another shift.'
+      setErrorMessage(message)
+      window.alert(message)
+      return
+    }
+
+    await handleAssignVolunteer(shift.id, candidate.id)
+  }
+
   const resolveMessageVolunteerIds = useCallback((): string[] => {
     if (!messageModal) return []
 
@@ -315,17 +392,22 @@ export default function AdminVolunteersPage() {
     if (messageModal.kind === 'volunteer') {
       return [messageModal.volunteerId]
     }
+  }, [confirmedVolunteers, messageModal])
 
-    const shiftIdsForDay = new Set(
-      shifts.filter((shift) => shift.day === messageModal.day).map((shift) => shift.id)
-    )
+  const getVolunteerIdsForDay = useCallback(
+    (day: string) => {
+      const shiftIdsForDay = new Set(shifts.filter((shift) => shift.day === day).map((shift) => shift.id))
 
-    return [...new Set(
-      assignments
-        .filter((assignment) => shiftIdsForDay.has(assignment.shift_id))
-        .map((assignment) => assignment.volunteer_id)
-    )]
-  }, [assignments, confirmedVolunteers, messageModal, shifts])
+      return [
+        ...new Set(
+          assignments
+            .filter((assignment) => shiftIdsForDay.has(assignment.shift_id))
+            .map((assignment) => assignment.volunteer_id)
+        ),
+      ]
+    },
+    [assignments, shifts]
+  )
 
   const handleSendMessage = async (subject: string, message: string) => {
     const volunteerIds = resolveMessageVolunteerIds()
@@ -337,10 +419,14 @@ export default function AdminVolunteersPage() {
     const response = await fetch('/api/admin/notifications/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ volunteerIds, subject, message }),
+      body: JSON.stringify({
+        volunteerIds,
+        subject,
+        message,
+      }),
     })
 
-    const payload = await response.json().catch(() => ({}))
+    const payload = (await response.json().catch(() => ({}))) as SendMessageResponse
 
     if (!response.ok) {
       throw new Error(payload.error || 'Failed to send message')
@@ -434,40 +520,131 @@ export default function AdminVolunteersPage() {
     }
   }
 
+  const handleSendShiftReminder = async (shift: VolunteerShift) => {
+    const assignedCount = getAssigned(shift).length
+    if (assignedCount === 0) {
+      window.alert('No assigned volunteers are available for this shift reminder.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Send the 24-hour reminder email now for "${shift.role}" at ${shift.location}?`
+    )
+
+    if (!confirmed) return
+
+    setSendingShiftReminderId(shift.id)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/notifications/reminders/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shiftIds: [shift.id] }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to send shift reminder')
+      }
+
+      window.alert(
+        `Reminder run complete: ${payload.sent || 0} sent, ${payload.failed || 0} failed, ${payload.skipped || 0} skipped.`
+      )
+      await refresh()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send shift reminder'
+      setErrorMessage(message)
+      window.alert(message)
+    } finally {
+      setSendingShiftReminderId(null)
+    }
+  }
+
+  const handleScheduleStartOfDayMessage = async () => {
+    const volunteerIds = getVolunteerIdsForDay(scheduledMessageDay)
+
+    if (volunteerIds.length === 0) {
+      const message = 'No scheduled volunteers were found for that day.'
+      setScheduledMessageNotice(message)
+      window.alert(message)
+      return
+    }
+
+    if (!scheduledMessageSubject.trim() || !scheduledMessageBody.trim()) {
+      const message = 'Subject and message are required.'
+      setScheduledMessageNotice(message)
+      window.alert(message)
+      return
+    }
+
+    setSendingScheduledMessage(true)
+    setScheduledMessageNotice(null)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          volunteerIds,
+          subject: scheduledMessageSubject,
+          message: scheduledMessageBody,
+          filters: { day: scheduledMessageDay },
+        }),
+      })
+
+      const payload = (await response.json().catch(() => ({}))) as SendMessageResponse
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to schedule start-of-day message')
+      }
+
+      setScheduledMessageNotice('Start-of-day message scheduled.')
+      setScheduledMessageSubject('')
+      setScheduledMessageBody('')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to schedule start-of-day message'
+      setScheduledMessageNotice(message)
+      setErrorMessage(message)
+      window.alert(message)
+    } finally {
+      setSendingScheduledMessage(false)
+    }
+  }
+
   const getMessageModalTitle = () => {
     if (!messageModal) return 'Message volunteers'
 
     if (messageModal.kind === 'all') {
-      return 'Message all volunteers'
+      return 'Send message to all volunteers now'
     }
 
     if (messageModal.kind === 'volunteer') {
       const volunteer = volunteerById.get(messageModal.volunteerId)
-      return volunteer ? `Message ${volunteer.name}` : 'Message volunteer'
+      return volunteer ? `Send message to ${volunteer.name} now` : 'Send message now'
     }
 
-    const dayMatch = EVENT_DAYS.find((day) => day.date === messageModal.day)
-    return dayMatch ? `Message volunteers on ${dayMatch.label}` : 'Message scheduled volunteers'
+    return 'Send message now'
   }
 
   const getMessageModalSubtitle = () => {
-    if (!messageModal) return 'This goes to the selected volunteers.'
+    if (!messageModal) return 'This sends immediately to the selected volunteers.'
 
     if (messageModal.kind === 'all') {
-      return 'This goes to every confirmed volunteer.'
+      return 'This sends immediately to every confirmed volunteer.'
     }
 
     if (messageModal.kind === 'volunteer') {
       const volunteer = volunteerById.get(messageModal.volunteerId)
       return volunteer
-        ? `This goes to ${volunteer.email}.`
-        : 'This goes to the selected volunteer.'
+        ? `This sends immediately to ${volunteer.email}.`
+        : 'This sends immediately to the selected volunteer.'
     }
 
-    const dayMatch = EVENT_DAYS.find((day) => day.date === messageModal.day)
-    return dayMatch
-      ? `This goes to every volunteer scheduled on ${dayMatch.label}.`
-      : 'This goes to everyone scheduled for the selected shifts.'
+    return 'This sends immediately to the selected volunteers.'
   }
 
   if (authLoading || loading) {
@@ -496,8 +673,14 @@ export default function AdminVolunteersPage() {
 
   const allShiftRoles = [...new Set(shifts.map((shift) => shift.role))].sort()
   const allShiftLocations = [...new Set(shifts.map((shift) => shift.location))].sort()
+  const coverageDays = Array.from(new Set(openShifts.map((shift) => shift.day))).sort((a, b) =>
+    a.localeCompare(b)
+  )
+  const activeCoverageDay = coverageDays.includes(coverageDay)
+    ? coverageDay
+    : coverageDays[0] ?? ''
 
-  const filteredShifts = shifts.filter((shift) => {
+  const filteredShifts = coveredShifts.filter((shift) => {
     if (shiftFilters.days.length > 0 && !shiftFilters.days.includes(shift.day)) return false
     if (shiftFilters.roles.length > 0 && !shiftFilters.roles.includes(shift.role)) return false
     if (
@@ -530,8 +713,7 @@ export default function AdminVolunteersPage() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => {
-                setReminderResult(null)
-                setReminderModal(true)
+                openReminderModal()
               }}
               className="btn-secondary text-sm py-2 px-4 flex items-center gap-2"
             >
@@ -554,56 +736,84 @@ export default function AdminVolunteersPage() {
           </div>
         )}
 
-        <div className="card mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex-1">
-            <p className="text-sm text-gray-text mb-1">Overall shift fill rate</p>
-            <div className="flex items-center gap-3">
-              <p
-                className={`text-4xl font-bold font-accent ${
-                  fillRate >= 80
-                    ? 'text-success'
-                    : fillRate >= 60
-                      ? 'text-orange'
-                      : 'text-error'
-                }`}
-              >
-                {fillRate}%
-              </p>
-              <div className="flex-1 bg-gray-border rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full ${
-                    fillRate >= 80 ? 'bg-success' : fillRate >= 60 ? 'bg-orange' : 'bg-error'
+        <div className="card mb-6 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-text mb-1">Overall shift fill rate</p>
+              <div className="flex items-center gap-3">
+                <p
+                  className={`text-4xl font-bold font-accent ${
+                    fillRate >= 80
+                      ? 'text-success'
+                      : fillRate >= 60
+                        ? 'text-orange'
+                        : 'text-error'
                   }`}
-                  style={{ width: `${fillRate}%` }}
-                />
+                >
+                  {fillRate}%
+                </p>
+                <div className="flex-1 bg-gray-border rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${
+                      fillRate >= 80 ? 'bg-success' : fillRate >= 60 ? 'bg-orange' : 'bg-error'
+                    }`}
+                    style={{ width: `${fillRate}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div className="text-center">
+                <p className="text-2xl font-bold font-accent text-charcoal">{volunteers.length}</p>
+                <p className="text-gray-text">Volunteers</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold font-accent text-teal">
+                  {confirmedVolunteers.length}
+                </p>
+                <p className="text-gray-text">Confirmed</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold font-accent text-orange">
+                  {volunteers.filter((volunteer) => volunteer.status === 'pending').length}
+                </p>
+                <p className="text-gray-text">Pending</p>
               </div>
             </div>
           </div>
-          <div className="flex gap-6 text-sm">
-            <div className="text-center">
-              <p className="text-2xl font-bold font-accent text-charcoal">{volunteers.length}</p>
-              <p className="text-gray-text">Volunteers</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold font-accent text-teal">
-                {confirmedVolunteers.length}
-              </p>
-              <p className="text-gray-text">Confirmed</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold font-accent text-orange">
-                {volunteers.filter((volunteer) => volunteer.status === 'pending').length}
-              </p>
-              <p className="text-gray-text">Pending</p>
-            </div>
+
+          <div className="border-t border-gray-border pt-3 flex gap-2 flex-wrap">
+            {EVENT_DAYS.map((day) => {
+              const dayShifts = shifts.filter((shift) => shift.day === day.date)
+              const dayOpen = dayShifts.reduce(
+                (acc, shift) => acc + Math.max(0, shift.total_slots - shift.filled_slots),
+                0
+              )
+
+              return (
+                <button
+                  key={day.date}
+                  onClick={() => openReminderModal(day.date)}
+                  className={`text-xs px-3 py-1.5 rounded-pill border font-medium transition-colors flex items-center gap-1.5 ${
+                    dayOpen > 0
+                      ? 'border-orange text-orange bg-orange-light hover:bg-orange hover:text-white'
+                      : 'border-gray-border text-gray-mid cursor-default'
+                  }`}
+                  disabled={dayOpen === 0}
+                >
+                  {day.label}
+                  {dayOpen > 0 ? <span className="font-bold">{dayOpen} open</span> : <span>covered</span>}
+                </button>
+              )
+            })}
           </div>
         </div>
 
         <div className="flex gap-1 border-b border-gray-border mb-6">
           {[
-            { id: 'coverage', label: 'Coverage Gaps' },
             { id: 'volunteers', label: `Volunteers (${volunteers.length})` },
-            { id: 'shifts', label: 'All Shifts' },
+            { id: 'coverage', label: 'Needs Coverage' },
+            { id: 'shifts', label: `Covered Shifts (${coveredShifts.length})` },
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -621,31 +831,30 @@ export default function AdminVolunteersPage() {
 
         {activeTab === 'coverage' && (
           <div>
-            <div className="flex gap-2 flex-wrap mb-5">
-              {EVENT_DAYS.map((day) => {
-                const dayShifts = shifts.filter((shift) => shift.day === day.date)
-                const dayOpen = dayShifts.reduce(
-                  (acc, shift) => acc + Math.max(0, shift.total_slots - shift.filled_slots),
-                  0
-                )
-
-                return (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-gray-text">
+                These are the shifts that still have open slots. Use list view for quick triage or
+                calendar view to assign directly against the schedule.
+              </p>
+              <div className="inline-flex rounded-full border border-gray-border bg-white p-1">
+                {(['calendar', 'list'] as const).map((view) => (
                   <button
-                    key={day.date}
-                    onClick={() => setMessageModal({ kind: 'day', day: day.date })}
-                    className={`text-xs px-3 py-1.5 rounded-pill border font-medium transition-colors flex items-center gap-1.5 ${
-                      dayOpen > 0
-                        ? 'border-orange text-orange bg-orange-light hover:bg-orange hover:text-white'
-                        : 'border-gray-border text-gray-mid cursor-default'
+                    key={view}
+                    type="button"
+                    onClick={() => setCoverageView(view)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                      coverageView === view
+                        ? 'bg-teal-500 text-white'
+                        : 'text-gray-text hover:text-teal'
                     }`}
-                    disabled={dayOpen === 0}
                   >
-                    {day.label}
-                    {dayOpen > 0 ? <span className="font-bold">{dayOpen} open</span> : <span>covered</span>}
+                    {view === 'calendar' ? 'Calendar' : 'List'}
                   </button>
-                )
-              })}
+                ))}
+              </div>
             </div>
+
+
 
             {openShifts.length === 0 ? (
               <div className="text-center py-12">
@@ -653,52 +862,82 @@ export default function AdminVolunteersPage() {
                 <p className="text-gray-text text-sm mt-1">Nice work.</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
-                <p className="text-sm text-gray-text mb-1">
+              <>
+                <p className="mb-4 text-sm text-gray-text">
                   {openShifts.length} shift{openShifts.length !== 1 ? 's' : ''} still need
                   volunteers
                 </p>
-                {openShifts.map((shift) => {
-                  const open = shift.total_slots - shift.filled_slots
-                  const pct = Math.round((shift.filled_slots / shift.total_slots) * 100)
-                  const day = EVENT_DAYS.find((item) => item.date === shift.day)
 
-                  return (
-                    <div
-                      key={shift.id}
-                      className="card flex flex-col sm:flex-row sm:items-center gap-4"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="badge-featured text-xs">{shift.role}</span>
-                          <span className="text-xs text-gray-text">{day?.label || shift.day}</span>
-                        </div>
-                        <p className="text-sm text-charcoal font-medium">{shift.location}</p>
-                        <p className="text-xs text-gray-text">
-                          {shift.start_time} - {shift.end_time}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="flex-1 bg-gray-border rounded-full h-1.5">
-                            <div
-                              className="h-1.5 rounded-full bg-teal-500"
-                              style={{ width: `${pct}%` }}
-                            />
+                {coverageView === 'calendar' ? (
+                  <AdminCoverageCalendar
+                    shifts={openShifts}
+                    activeDay={activeCoverageDay}
+                    availableDays={coverageDays}
+                    onActiveDayChange={setCoverageDay}
+                    onSelectShift={setManageShiftId}
+                  />
+                ) : null}
+
+                {coverageView === 'list' ? (
+                  <div className="flex flex-col gap-3">
+                    {openShifts.map((shift) => {
+                      const open = shift.total_slots - shift.filled_slots
+                      const pct = Math.round((shift.filled_slots / shift.total_slots) * 100)
+                      const day = EVENT_DAYS.find((item) => item.date === shift.day)
+                      const autoAssignable = getAutoAssignable(shift)
+
+                      return (
+                        <div
+                          key={shift.id}
+                          className="card flex flex-col sm:flex-row sm:items-center gap-4"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="badge-featured text-xs">{shift.role}</span>
+                              <span className="text-xs text-gray-text">
+                                {day?.label || shift.day}
+                              </span>
+                            </div>
+                            <p className="text-sm text-charcoal font-medium">{shift.location}</p>
+                            <p className="text-xs text-gray-text">
+                              {shift.start_time} - {shift.end_time}
+                            </p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex-1 bg-gray-border rounded-full h-1.5">
+                                <div
+                                  className="h-1.5 rounded-full bg-teal-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-orange font-semibold">
+                                {open} spot{open !== 1 ? 's' : ''} open
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-text">
+                              {autoAssignable.length} volunteer
+                              {autoAssignable.length === 1 ? '' : 's'} ready to auto-assign
+                            </p>
                           </div>
-                          <span className="text-xs text-orange font-semibold">
-                            {open} spot{open !== 1 ? 's' : ''} open
-                          </span>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => void handleAutoAssignVolunteer(shift)}
+                              className="btn-secondary text-sm py-2 px-4"
+                            >
+                              Auto-assign
+                            </button>
+                            <button
+                              onClick={() => setManageShiftId(shift.id)}
+                              className="btn-secondary text-sm py-2 px-4 shrink-0"
+                            >
+                              Manage
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => setManageShiftId(shift.id)}
-                        className="btn-secondary text-sm py-2 px-4 shrink-0"
-                      >
-                        Manage
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         )}
@@ -891,9 +1130,22 @@ export default function AdminVolunteersPage() {
                 <h4 className="font-accent font-semibold text-charcoal mb-3">
                   Eligible Volunteers ({getEligible(manageShift).length})
                 </h4>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#dbe7e8] bg-[#f8fbfb] px-3 py-2">
+                  <p className="text-xs text-gray-text">
+                    Auto-assign chooses the confirmed, unblocked volunteer with matching
+                    availability, no overlap conflict, and the lowest current shift count.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleAutoAssignVolunteer(manageShift)}
+                    className="rounded-full bg-[#6aa9ae] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#5a9a9f]"
+                  >
+                    Auto-assign next
+                  </button>
+                </div>
                 {getEligible(manageShift).length === 0 ? (
                   <p className="text-sm text-gray-text italic">
-                    No confirmed volunteers available for this day.
+                    No confirmed volunteers are available for this day without a conflict.
                   </p>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -913,6 +1165,15 @@ export default function AdminVolunteersPage() {
 
               <div className="flex justify-end pt-2">
                 <button
+                  onClick={() => void handleSendShiftReminder(manageShift)}
+                  disabled={sendingShiftReminderId === manageShift.id}
+                  className="text-sm font-medium text-charcoal border border-gray-border px-4 py-2.5 rounded-sm hover:bg-gray-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed mr-3"
+                >
+                  {sendingShiftReminderId === manageShift.id
+                    ? 'Sending reminder...'
+                    : 'Send 24-hour reminder now'}
+                </button>
+                <button
                   onClick={() => setManageShiftId(null)}
                   className="text-sm font-medium text-white bg-charcoal px-8 py-2.5 rounded-sm hover:bg-black transition-colors"
                 >
@@ -929,6 +1190,9 @@ export default function AdminVolunteersPage() {
         onClose={() => setMessageModal(null)}
         title={getMessageModalTitle()}
         subtitle={getMessageModalSubtitle()}
+        submitLabel="Send Message"
+        successTitle="Message sent!"
+        successMessage="Volunteers will receive the message shortly."
         onSend={handleSendMessage}
       />
 
@@ -965,6 +1229,12 @@ export default function AdminVolunteersPage() {
                     {reminderResult.failed} failed, {reminderResult.skipped} skipped as already
                     handled.
                   </p>
+                  {reminderResult.queued === 0 && (
+                    <p className="text-sm text-gray-text mt-2">
+                      Nothing is due right now. Reminder checks only queue emails for confirmed
+                      volunteers whose shifts are within the active lead-time windows.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -984,8 +1254,91 @@ export default function AdminVolunteersPage() {
                       {reminderPreview.counts.reminder_1h.queued === 1 ? '' : 's'}
                     </span>{' '}
                     would be queued.
+                    {reminderPreview.counts.reminder_24h.queued === 0 &&
+                      reminderPreview.counts.reminder_1h.queued === 0 && (
+                        <>
+                          <br />
+                          No reminders are currently due for confirmed volunteers in the active
+                          send window.
+                        </>
+                      )}
                   </>
                 )}
+              </div>
+
+              <div className="rounded-md border border-gray-border p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-charcoal">Start-of-day message</p>
+                  <p className="text-xs text-gray-text">
+                    Queue a day-specific volunteer email now and have it send automatically at the
+                    start of that day in America/Denver.
+                  </p>
+                </div>
+
+                <div className="grid gap-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-text">Day</label>
+                    <select
+                      value={scheduledMessageDay}
+                      onChange={(event) => setScheduledMessageDay(event.target.value)}
+                      className="input mt-1"
+                    >
+                      {EVENT_DAYS.map((day) => {
+                        const count = getVolunteerIdsForDay(day.date).length
+                        return (
+                          <option key={day.date} value={day.date}>
+                            {day.label} ({count} scheduled)
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-text">Subject</label>
+                    <input
+                      type="text"
+                      value={scheduledMessageSubject}
+                      onChange={(event) => setScheduledMessageSubject(event.target.value)}
+                      className="input mt-1"
+                      placeholder="Enter scheduled message subject"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-gray-text">Message</label>
+                    <textarea
+                      value={scheduledMessageBody}
+                      onChange={(event) => setScheduledMessageBody(event.target.value)}
+                      className="input mt-1"
+                      rows={5}
+                      placeholder="Enter the message volunteers should receive at the start of the day..."
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-text">
+                    This will go to{' '}
+                    <span className="font-medium text-charcoal">
+                      {getVolunteerIdsForDay(scheduledMessageDay).length}
+                    </span>{' '}
+                    volunteer{getVolunteerIdsForDay(scheduledMessageDay).length === 1 ? '' : 's'} currently scheduled that day.
+                  </p>
+
+                  {scheduledMessageNotice && (
+                    <p className="text-sm text-gray-text">{scheduledMessageNotice}</p>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => void handleScheduleStartOfDayMessage()}
+                      disabled={sendingScheduledMessage}
+                      className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingScheduledMessage ? 'Scheduling...' : 'Schedule for Start of Day'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-md border border-gray-border p-4">

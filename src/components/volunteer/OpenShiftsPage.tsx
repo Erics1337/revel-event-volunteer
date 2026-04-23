@@ -471,7 +471,7 @@ export function OpenShiftsPage() {
         className="px-4 py-10 text-center md:py-8"
         style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
       >
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-6xl">
           <h1
             className="text-4xl font-bold tracking-tight text-white md:text-[2.7rem]"
             style={{ fontFamily: 'var(--font-accent)' }}
@@ -484,7 +484,7 @@ export function OpenShiftsPage() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-4xl px-4 py-4 md:py-4">
+      <main className="mx-auto max-w-6xl px-4 py-4 md:py-4">
         {message && (
           <div className="fixed right-4 top-20 z-40 rounded-md border border-[#cde7e7] bg-[#eef8f8] px-4 py-3 text-sm text-[#2f6d71] shadow-[0_10px_30px_rgba(47,109,113,0.18)]">
             {message}

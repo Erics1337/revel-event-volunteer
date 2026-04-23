@@ -226,7 +226,7 @@ export default function SchedulePage() {
         className="px-4 py-10 md:py-8"
         style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
       >
-        <div className="mx-auto flex max-w-4xl flex-wrap items-end justify-between gap-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/80">
               Volunteer Portal
@@ -255,7 +255,7 @@ export default function SchedulePage() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-8">
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">

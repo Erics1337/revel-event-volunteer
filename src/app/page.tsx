@@ -120,7 +120,7 @@ export default function Home() {
                           </Link>
                         ))}
                         {isAdmin(profile?.role) && (
-                          <Link href="/admin" className="transition hover:text-teal">
+                          <Link href="/admin/volunteers" className="transition hover:text-teal">
                             Admin
                           </Link>
                         )}

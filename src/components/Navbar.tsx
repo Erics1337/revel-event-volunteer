@@ -58,9 +58,9 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
             </Link>
           </div>
 
-          <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto">
-            {adminNavItems?.map((link) => {
-              const active = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href))
+        <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto">
+          {adminNavItems?.map((link) => {
+              const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
               return (
                 <Link
                   key={link.href}
@@ -154,7 +154,7 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
         <div className="flex items-center gap-2">
           {isAdminUser && (
             <Link
-              href="/admin"
+              href="/admin/volunteers"
               className="rounded-sm px-3 py-1.5 text-sm font-medium text-[#6f7883] transition hover:bg-[#f0f2ef] hover:text-[#5aaeb3]"
             >
               Admin

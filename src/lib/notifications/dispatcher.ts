@@ -18,6 +18,7 @@ interface Shift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
 }
 
 interface Volunteer {
@@ -37,6 +38,7 @@ interface Notification {
   status: string
   error_message: string | null
   shift_id: string | null
+  scheduled_for: string
   created_at: string
 }
 
@@ -126,6 +128,10 @@ function zonedDateTimeToUtc(day: string, time: string, timeZone: string) {
   return new Date(guess.getTime() - offset)
 }
 
+function getImmediateSchedule() {
+  return new Date().toISOString()
+}
+
 function isReminderDue(
   shift: Shift,
   rule: ReminderRule,
@@ -150,7 +156,7 @@ async function getEligibleAssignments(supabase: SupabaseClient<Database>) {
       shift_id,
       status,
       volunteer:volunteers(id, user_id, status, user:users(name, email)),
-      shift:volunteer_shifts(id, role, day, start_time, end_time, location)
+      shift:volunteer_shifts(id, role, day, start_time, end_time, location, address)
     `)
     .eq('status', 'assigned')
     .not('volunteer', 'is', null)
@@ -205,6 +211,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
       subject: template.subject,
       body: template.html,
       shift_id: shiftId,
+      scheduled_for: getImmediateSchedule(),
     })
     .select()
     .single()
@@ -224,41 +231,52 @@ export async function queueReminders1h(): Promise<Notification[]> {
 
 export async function sendPendingNotifications(supabaseOverride?: SupabaseClient<Database>) {
   const supabase = supabaseOverride ?? (await createClient())
+  const results = [] as { id: string; success: boolean; error?: string }[]
+  const nowIso = new Date().toISOString()
 
-  const { data: pending } = await notificationsTable(supabase)
-    .select(`
-      id,
-      user_id,
-      subject,
-      body,
-      user:user_id(email)
-    `)
-    .eq('status', 'pending')
-    .limit(10)
+  while (true) {
+    const { data: pending, error } = await notificationsTable(supabase)
+      .select(`
+        id,
+        user_id,
+        subject,
+        body,
+        scheduled_for,
+        user:user_id(email)
+      `)
+      .eq('status', 'pending')
+      .lte('scheduled_for', nowIso)
+      .order('scheduled_for', { ascending: true })
+      .limit(100)
 
-  if (!pending) return []
+    if (error) {
+      throw new Error(error.message)
+    }
 
-  const results = []
+    if (!pending || pending.length === 0) {
+      break
+    }
 
-  for (const notification of pending as any[]) {
-    const email = notification.user?.email
-    if (!email) continue
+    for (const notification of pending as any[]) {
+      const email = notification.user?.email
+      if (!email) continue
 
-    const result = await sendEmail({
-      to: email,
-      subject: notification.subject,
-      html: notification.body,
-    })
-
-    await notificationsTable(supabase)
-      .update({
-        status: result.success ? 'sent' : 'failed',
-        sent_at: result.success ? new Date().toISOString() : null,
-        error_message: result.error || null,
+      const result = await sendEmail({
+        to: email,
+        subject: notification.subject,
+        html: notification.body,
       })
-      .eq('id', notification.id)
 
-    results.push({ id: notification.id, success: result.success, error: result.error })
+      await notificationsTable(supabase)
+        .update({
+          status: result.success ? 'sent' : 'failed',
+          sent_at: result.success ? new Date().toISOString() : null,
+          error_message: result.error || null,
+        })
+        .eq('id', notification.id)
+
+      results.push({ id: notification.id, success: result.success, error: result.error })
+    }
   }
 
   return results
@@ -376,6 +394,7 @@ export async function runReminderDispatch(options?: {
           subject: template.subject,
           body: template.html,
           shift_id: assignment.shift.id,
+          scheduled_for: getImmediateSchedule(),
         })
         .select()
         .single()
@@ -435,7 +454,10 @@ export async function runReminderDispatch(options?: {
 export async function sendBulkMessage(
   volunteerIds: string[],
   subject: string,
-  message: string
+  message: string,
+  options?: {
+    scheduledFor?: string
+  }
 ) {
   const supabase = await createClient()
 
@@ -448,11 +470,21 @@ export async function sendBulkMessage(
     `)
     .in('id', [...new Set(volunteerIds)])
 
-  if (!volunteers) return { sent: 0, failed: 0 }
+  if (!volunteers) {
+    return {
+      sent: 0,
+      failed: 0,
+      queued: 0,
+      scheduledFor: options?.scheduledFor ?? getImmediateSchedule(),
+    }
+  }
 
   const template = adminBulkMessageTemplate(subject, message, 'Boulder Startup Week 2026')
   let sent = 0
   let failed = 0
+  let queued = 0
+  const scheduledFor = options?.scheduledFor ?? getImmediateSchedule()
+  const sendImmediately = !options?.scheduledFor
 
   for (const volunteerData of volunteers) {
     const volunteer = volunteerData as any
@@ -468,11 +500,12 @@ export async function sendBulkMessage(
         type: 'admin_message',
         subject: template.subject,
         body: template.html,
+        scheduled_for: scheduledFor,
       })
       .select()
       .single()
 
-    if (notification) {
+    if (notification && sendImmediately) {
       const result = await sendEmail({
         to: email,
         subject: template.subject,
@@ -490,10 +523,12 @@ export async function sendBulkMessage(
 
       if (result.success) sent++
       else failed++
+    } else if (notification) {
+      queued++
     }
   }
 
-  return { sent, failed }
+  return { sent, failed, queued, scheduledFor }
 }
 
 export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
@@ -506,7 +541,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
       shift_id,
       status,
       volunteer:volunteers(id, user_id, status, user:users(name, email)),
-      shift:volunteer_shifts(id, role, day, start_time, end_time, location)
+      shift:volunteer_shifts(id, role, day, start_time, end_time, location, address)
     `)
     .eq('status', 'assigned')
     .not('volunteer', 'is', null)
@@ -571,6 +606,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
         subject: template.subject,
         body: template.html,
         shift_id: shift.id,
+        scheduled_for: getImmediateSchedule(),
       })
       .select()
       .single()

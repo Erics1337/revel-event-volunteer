@@ -3,7 +3,6 @@
 import { Navbar } from '@/components/Navbar'
 
 const ADMIN_NAV_ITEMS = [
-  { href: '/admin', label: 'Dashboard' },
   { href: '/admin/volunteers', label: 'Volunteers' },
   { href: '/admin/shifts', label: 'Shifts' },
 ]

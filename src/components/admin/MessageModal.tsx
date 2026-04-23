@@ -8,10 +8,22 @@ interface MessageModalProps {
   onClose: () => void
   title: string
   subtitle: string
+  submitLabel?: string
+  successTitle?: string
+  successMessage?: string
   onSend: (subject: string, message: string) => Promise<void>
 }
 
-export function MessageModal({ isOpen, onClose, title, subtitle, onSend }: MessageModalProps) {
+export function MessageModal({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  submitLabel = 'Send Message',
+  successTitle = 'Message sent!',
+  successMessage = 'Volunteers will receive the message shortly.',
+  onSend,
+}: MessageModalProps) {
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -66,9 +78,9 @@ export function MessageModal({ isOpen, onClose, title, subtitle, onSend }: Messa
             <div className="w-12 h-12 bg-teal-light rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckIcon className="w-6 h-6 text-teal" />
             </div>
-            <p className="font-semibold text-charcoal">Message sent!</p>
+            <p className="font-semibold text-charcoal">{successTitle}</p>
             <p className="text-sm text-gray-text mt-1">
-              Volunteers will receive the message shortly.
+              {successMessage}
             </p>
           </div>
         ) : (
@@ -124,7 +136,7 @@ export function MessageModal({ isOpen, onClose, title, subtitle, onSend }: Messa
                 disabled={sending || !subject.trim() || !message.trim()}
                 className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {sending ? 'Sending...' : 'Send Message'}
+                {sending ? 'Sending...' : submitLabel}
               </button>
             </div>
           </form>
