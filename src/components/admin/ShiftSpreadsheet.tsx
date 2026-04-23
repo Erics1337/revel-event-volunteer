@@ -395,21 +395,24 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
   const filteredVolunteers = useMemo(() => {
     if (!row.id || hasMultipleAssignments) return []
 
-    const assignedIds = new Set(assignments.map((assignment) => assignment.volunteer_id))
-
-    return volunteers.filter((volunteer) => {
+    return volunteers
+      .filter((volunteer) => {
       if (volunteer.status !== 'confirmed') return false
 
-      const isCurrent = currentAssignedVolunteer?.id === volunteer.id
-      const isEligible = volunteer.availability.includes(row.day)
-
-      if (!isCurrent && !isEligible) return false
-      if (!isCurrent && assignedIds.has(volunteer.id)) return false
-
       return matchesVolunteer(volunteer, deferredVolunteerQuery)
-    })
+      })
+      .sort((left, right) => {
+        const leftCurrent = currentAssignedVolunteer?.id === left.id ? 1 : 0
+        const rightCurrent = currentAssignedVolunteer?.id === right.id ? 1 : 0
+        if (leftCurrent !== rightCurrent) return rightCurrent - leftCurrent
+
+        const leftAvailable = left.availability.includes(row.day) ? 1 : 0
+        const rightAvailable = right.availability.includes(row.day) ? 1 : 0
+        if (leftAvailable !== rightAvailable) return rightAvailable - leftAvailable
+
+        return left.name.localeCompare(right.name)
+      })
   }, [
-    assignments,
     currentAssignedVolunteer?.id,
     deferredVolunteerQuery,
     hasMultipleAssignments,
@@ -600,6 +603,7 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
               <Popover.Content
                 sideOffset={8}
                 align="start"
+                onOpenAutoFocus={(event) => event.preventDefault()}
                 className="z-50 w-[360px] rounded-xl border border-gray-border bg-white p-3 shadow-xl"
               >
                 <div className="mb-2 flex items-center justify-between">
@@ -625,7 +629,18 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
                         className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50"
                       >
                         <div className="min-w-0">
-                          <div className="truncate font-medium text-charcoal">{volunteer.name}</div>
+                          <div className="flex items-center gap-2 truncate font-medium text-charcoal">
+                            <span className="truncate">{volunteer.name}</span>
+                            {volunteer.availability.includes(row.day) ? (
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                Available
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                Outside availability
+                              </span>
+                            )}
+                          </div>
                           <div className="truncate text-xs text-gray-text">
                             {volunteer.email} · {volunteer.phone}
                           </div>
@@ -934,7 +949,7 @@ export function ShiftSpreadsheet({
       if (!file) return
 
       const proceed = confirm(
-        'Importing a file replaces the entire shift schedule and removes existing assignments. Continue?'
+        'Importing a file replaces the entire shift schedule and will remove any volunteer sign-ups that already exist for the current shifts. Continue?'
       )
       if (!proceed) return
 
@@ -1023,6 +1038,10 @@ export function ShiftSpreadsheet({
         <div className="mt-1 text-sm text-gray-text">
           Volunteer search now lives in the volunteer name cell, and location editing happens inside
           the location dropdown itself.
+        </div>
+        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Importing a new spreadsheet fully replaces the current shift schedule and removes any
+          volunteer sign-ups already attached to those shifts.
         </div>
 
         {message ? (

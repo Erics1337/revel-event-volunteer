@@ -250,17 +250,6 @@ export default function AdminDashboard() {
         {/* Quick Actions */}
         <div className="grid md:grid-cols-3 gap-6 mt-8">
           <div className="card">
-            <h3 className="text-lg font-semibold text-charcoal mb-3">User Management</h3>
-            <p className="text-gray-text mb-4">Manage user roles and permissions</p>
-            <Link
-              href="/admin/users"
-              className="text-teal hover:underline font-medium"
-            >
-              Manage Users →
-            </Link>
-          </div>
-
-          <div className="card">
             <h3 className="text-lg font-semibold text-charcoal mb-3">Volunteer Coordination</h3>
             <p className="text-gray-text mb-4">Manage volunteer assignments and shifts</p>
             <Link

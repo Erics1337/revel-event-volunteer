@@ -22,6 +22,9 @@ export interface AvailableVolunteer {
   availability: string[]
   shift_count: number
   status: string
+  role: string
+  badges: string[]
+  blocked: boolean
 }
 
 export interface ShiftAssignment {

@@ -47,10 +47,15 @@ const IMPACT_STATS = [
   { value: '20+', label: 'Venues, rooms, and moving parts' },
 ] as const
 
-const NAV_LINKS = [
+const PUBLIC_NAV_LINKS = [
   { href: '#why-volunteer', label: 'Why Volunteer' },
   { href: '#how-it-works', label: 'How It Works' },
   { href: '/volunteers', label: 'Open Shifts' },
+] as const
+
+const AUTH_NAV_LINKS = [
+  { href: '/schedule', label: 'My Schedule' },
+  { href: '/profile', label: 'Profile' },
 ] as const
 
 export default function Home() {
@@ -102,19 +107,18 @@ export default function Home() {
 
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end lg:gap-5">
                   <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-charcoal/78 lg:justify-end">
-                    {NAV_LINKS.map((link) => (
+                    {PUBLIC_NAV_LINKS.map((link) => (
                       <Link key={link.href} href={link.href} className="transition hover:text-teal">
                         {link.label}
                       </Link>
                     ))}
                     {user && (
                       <>
-                        <Link href="/schedule" className="transition hover:text-teal">
-                          My Schedule
-                        </Link>
-                        <Link href="/profile" className="transition hover:text-teal">
-                          Profile
-                        </Link>
+                        {AUTH_NAV_LINKS.map((link) => (
+                          <Link key={link.href} href={link.href} className="transition hover:text-teal">
+                            {link.label}
+                          </Link>
+                        ))}
                         {isAdmin(profile?.role) && (
                           <Link href="/admin" className="transition hover:text-teal">
                             Admin

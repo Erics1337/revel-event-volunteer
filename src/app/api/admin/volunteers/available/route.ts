@@ -30,7 +30,10 @@ export async function GET() {
       users (
         id,
         name,
-        email
+        email,
+        role,
+        badges,
+        blocked
       )
     `)
 
@@ -67,6 +70,9 @@ export async function GET() {
       name: userRow?.name ?? 'Unknown',
       email: userRow?.email ?? '',
       user_id: userRow?.id ?? null,
+      role: userRow?.role ?? 'volunteer',
+      badges: userRow?.badges ?? [],
+      blocked: userRow?.blocked ?? false,
     }
   })
 

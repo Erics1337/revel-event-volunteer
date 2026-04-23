@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { EVENT_DAYS } from '@/lib/shifts/types'
 
-const VALID_DAYS = new Set([
-  '2026-05-04',
-  '2026-05-05',
-  '2026-05-06',
-  '2026-05-07',
-  '2026-05-08',
-])
+const VALID_DAYS = new Set(EVENT_DAYS.map((day) => day.date))
 
 export async function GET() {
   const supabase = await createClient()
@@ -93,14 +88,33 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
+  const name = typeof (body as { name?: unknown }).name === 'string'
+    ? (body as { name: string }).name.trim()
+    : ''
   const phone = typeof (body as { phone?: unknown }).phone === 'string'
     ? (body as { phone: string }).phone.trim()
     : ''
   const availability = Array.isArray((body as { availability?: unknown }).availability)
     ? (body as { availability: unknown[] }).availability.filter(
-        (value): value is string => typeof value === 'string' && VALID_DAYS.has(value)
+        (value): value is string => typeof value === 'string' && VALID_DAYS.has(value as any)
       )
     : []
+
+  const { data: existingUser, error: existingUserError } = await supabase
+    .from('users')
+    .select('name')
+    .eq('id', user.id)
+    .single()
+
+  if (existingUserError) {
+    return NextResponse.json({ error: existingUserError.message }, { status: 500 })
+  }
+
+  const resolvedName = name || existingUser.name.trim()
+
+  if (!resolvedName) {
+    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  }
 
   if (!phone) {
     return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
@@ -116,6 +130,7 @@ export async function PUT(request: Request) {
   const { error: userUpdateError } = await supabase
     .from('users')
     .update({
+      name: resolvedName,
       phone,
       updated_at: new Date().toISOString(),
     })

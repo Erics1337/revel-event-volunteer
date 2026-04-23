@@ -689,6 +689,7 @@ export default function AdminVolunteersPage() {
               onMessageVolunteer={(volunteerId) =>
                 setMessageModal({ kind: 'volunteer', volunteerId })
               }
+              onRefresh={refresh}
             />
           </div>
         )}

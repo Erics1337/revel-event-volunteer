@@ -6,6 +6,10 @@ import { PhoneRequiredModal } from '@/components/PhoneRequiredModal';
 export const metadata: Metadata = {
   title: "Revel Event Platform - Boulder Startup Week 2026",
   description: "Open-source community event management platform for Boulder Startup Week and beyond.",
+  icons: {
+    icon: '/icon.png?v=3',
+    apple: '/icon.png?v=3',
+  }
 };
 
 export default function RootLayout({

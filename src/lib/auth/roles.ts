@@ -7,5 +7,5 @@ export function isAdmin(role: AppRole | null | undefined): boolean {
 }
 
 export function isVolunteer(role: AppRole | null | undefined): boolean {
-  return role === 'volunteer'
+  return role === 'volunteer' || role === 'admin'
 }
