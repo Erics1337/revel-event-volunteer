@@ -225,6 +225,10 @@ otp_expiry = 3600
 subject = "Your magic link for Boulder Startup Week 2026"
 content_path = "./supabase/templates/magic_link.html"
 
+[auth.email.template.confirmation]
+subject = "Confirm Your Signup for Boulder Startup Week 2026"
+content_path = "./supabase/templates/confirm_signup.html"
+
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
