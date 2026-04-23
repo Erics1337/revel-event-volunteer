@@ -100,8 +100,8 @@ export default function Home() {
                   />
                 </Link>
 
-                <div className="flex flex-col gap-4 lg:items-end">
-                  <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-charcoal/78">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end lg:gap-5">
+                  <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-charcoal/78 lg:justify-end">
                     {NAV_LINKS.map((link) => (
                       <Link key={link.href} href={link.href} className="transition hover:text-teal">
                         {link.label}
@@ -131,8 +131,11 @@ export default function Home() {
                   </nav>
 
                   {!user && (
-                    <Link href="/auth/login" className="btn-primary inline-flex items-center justify-center">
-                      Sign In
+                    <Link
+                      href="/auth/login"
+                      className="btn-primary inline-flex items-center justify-center whitespace-nowrap"
+                    >
+                      Sign In / Sign Up
                     </Link>
                   )}
                 </div>
