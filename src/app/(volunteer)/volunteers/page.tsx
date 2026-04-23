@@ -40,7 +40,6 @@ interface VolunteerAssignment {
 interface VolunteerRecord {
   id: string
   user_id: string | null
-  phone: string
   availability: string[]
   status: string
   shift_count: number
@@ -67,17 +66,9 @@ export default function VolunteerPortal() {
   const [selectedRole, setSelectedRole] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
-  const [showRecruitModal, setShowRecruitModal] = useState(() => {
-    try {
-      return !localStorage.getItem('bsw_recruit_modal_seen')
-    } catch {
-      return true
-    }
-  })
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
   const [setupOpen, setSetupOpen] = useState(false)
-  const [setupPhone, setSetupPhone] = useState('')
   const [setupAvailability, setSetupAvailability] = useState<string[]>([])
   const [savingSetup, setSavingSetup] = useState(false)
   const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
@@ -99,7 +90,6 @@ export default function VolunteerPortal() {
     if (!user) {
       setVolunteer(null)
       setAssignments([])
-      setSetupPhone(profile?.phone || '')
       setSetupAvailability([])
       setContextLoading(false)
       return
@@ -115,10 +105,9 @@ export default function VolunteerPortal() {
     const nextVolunteer = payload.volunteer ?? null
     setVolunteer(nextVolunteer)
     setAssignments(payload.assignments || [])
-    setSetupPhone(nextVolunteer?.phone || profile?.phone || '')
     setSetupAvailability(nextVolunteer?.availability || [])
     setContextLoading(false)
-  }, [user, profile?.phone])
+  }, [user])
 
   const refreshPortal = useCallback(async () => {
     setErrorMessage(null)
@@ -156,7 +145,7 @@ export default function VolunteerPortal() {
   )
 
   const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
-  const hasVolunteerSetup = Boolean(volunteer?.phone && availability.length > 0)
+  const hasVolunteerSetup = Boolean(availability.length > 0)
   const showSetupPanel = Boolean(user && (setupOpen || !hasVolunteerSetup))
   const hasAvailabilityOverlap = shifts.some((shift) => availability.includes(shift.day))
   const showAvailabilityOnly =
@@ -198,12 +187,7 @@ export default function VolunteerPortal() {
     setSelectedLocation('all')
   }
 
-  const dismissRecruitModal = () => {
-    try {
-      localStorage.setItem('bsw_recruit_modal_seen', '1')
-    } catch {}
-    setShowRecruitModal(false)
-  }
+
 
   const handleSetupAvailabilityToggle = (day: string) => {
     setSetupAvailability((current) =>
@@ -221,7 +205,6 @@ export default function VolunteerPortal() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: setupPhone,
           availability: setupAvailability,
         }),
       })
@@ -261,7 +244,6 @@ export default function VolunteerPortal() {
     if (!hasVolunteerSetup) {
       setSetupOpen(true)
       setErrorMessage('Complete your volunteer setup before requesting a shift.')
-      dismissRecruitModal()
       return
     }
 
@@ -319,7 +301,6 @@ export default function VolunteerPortal() {
   }
 
   const handleRecruitCta = () => {
-    dismissRecruitModal()
     if (!user) {
       redirectToSignIn()
       return
@@ -433,7 +414,7 @@ export default function VolunteerPortal() {
                   Volunteer setup
                 </h2>
                 <p className="mt-1 text-sm text-[#6f7883]">
-                  Save your phone number and the days you can help so shift requests line up with your availability.
+                  Save the days you can help so shift requests line up with your availability.
                 </p>
               </div>
               {hasVolunteerSetup && (
@@ -443,20 +424,7 @@ export default function VolunteerPortal() {
               )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[280px_1fr]">
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
-                  Phone
-                </span>
-                <input
-                  type="tel"
-                  value={setupPhone}
-                  onChange={(event) => setSetupPhone(event.target.value)}
-                  className="h-10 rounded-sm border border-[#d8dde3] bg-white px-4 text-sm text-[#505966] outline-none transition focus:border-[#6aa9ae]"
-                  placeholder="(555) 123-4567"
-                />
-              </label>
-
+            <div className="grid gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
                   Availability
@@ -491,9 +459,6 @@ export default function VolunteerPortal() {
               >
                 {savingSetup ? 'Saving...' : hasVolunteerSetup ? 'Save settings' : 'Become a volunteer'}
               </button>
-              <p className="text-sm text-[#6f7883]">
-                Your phone is used for reminders and day-of coordination only.
-              </p>
             </div>
           </section>
         )}
@@ -609,71 +574,7 @@ export default function VolunteerPortal() {
         )}
       </main>
 
-      {showRecruitModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              dismissRecruitModal()
-            }
-          }}
-        >
-          <div className="w-full max-w-md overflow-hidden rounded-md bg-white shadow-[0_18px_50px_rgba(15,23,42,0.24)]">
-            <div
-              className="relative px-6 pb-6 pt-8 text-center"
-              style={{ background: 'linear-gradient(90deg, #5e9a98 0%, #b5aa5f 45%, #f39c3d 100%)' }}
-            >
-              <button
-                onClick={dismissRecruitModal}
-                aria-label="Close"
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
-              >
-                <CloseIcon />
-              </button>
-              <h2
-                className="text-3xl font-bold text-white"
-                style={{ fontFamily: 'var(--font-accent)' }}
-              >
-                Make Boulder Startup Week happen.
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-white/95">
-                Save your availability, request the shifts that fit, and keep your volunteer plan in one place.
-              </p>
-            </div>
 
-            <div className="flex flex-col gap-4 px-6 py-6">
-              <div className="flex flex-col gap-2 text-sm text-[#6f7883]">
-                <p className="font-semibold text-[#3f4a56]">Why volunteer?</p>
-                {[
-                  'Meet Boulder founders, builders, and community organizers',
-                  'Get a behind-the-scenes role in making the week run smoothly',
-                  'Choose shifts that fit your schedule',
-                  'Help create a genuinely community-owned event',
-                ].map((item) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <span className="mt-0.5 font-bold text-[#5aaeb3]">✓</span>
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={handleRecruitCta}
-                className="inline-flex w-full justify-center rounded-sm bg-[#ef8f3d] px-6 py-3 text-base font-semibold text-white shadow-[4px_4px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
-              >
-                {user ? 'Open volunteer setup' : 'Sign in to volunteer'}
-              </button>
-
-              <button
-                onClick={dismissRecruitModal}
-                className="text-sm text-[#6f7883] transition hover:text-[#5aaeb3]"
-              >
-                Just browsing shifts for now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }
