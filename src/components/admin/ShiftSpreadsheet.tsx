@@ -571,17 +571,13 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
   return (
     <tr className={`border-b border-gray-border align-top ${row.id ? '' : 'bg-orange-50/60'}`}>
       <td className="px-3 py-3">
-        <select
+        <input
+          type="date"
           value={row.day}
           onChange={(event) => onRowChange('day', event.target.value)}
           className={`${inputClassName} min-w-[140px]`}
-        >
-          {EVENT_DAYS.map((day) => (
-            <option key={day.date} value={day.date}>
-              {day.label}
-            </option>
-          ))}
-        </select>
+          list="shift-spreadsheet-day-options"
+        />
       </td>
       <td className="px-3 py-3">
         <input
@@ -1149,6 +1145,13 @@ export function ShiftSpreadsheet({
       <datalist id="shift-spreadsheet-role-options">
         {availableRoles.map((role) => (
           <option key={role} value={role} />
+        ))}
+      </datalist>
+      <datalist id="shift-spreadsheet-day-options">
+        {EVENT_DAYS.map((day) => (
+          <option key={day.date} value={day.date}>
+            {day.label}
+          </option>
         ))}
       </datalist>
     </div>

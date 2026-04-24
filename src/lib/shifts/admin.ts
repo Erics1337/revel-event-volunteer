@@ -33,7 +33,6 @@ export interface EditableShiftInput {
 
 type CsvRow = Record<string, unknown>
 
-const VALID_DAYS = new Set<string>(EVENT_DAYS.map((day) => day.date))
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
 const DAY_ALIASES = new Map<string, string>(
   EVENT_DAYS.flatMap((day) => {
@@ -97,7 +96,18 @@ function normalizeTime(value: string): string | null {
 function normalizeDay(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
-  if (VALID_DAYS.has(trimmed)) return trimmed
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T12:00:00Z`)
+    if (Number.isNaN(parsed.getTime())) return null
+
+    const normalized = [
+      parsed.getUTCFullYear(),
+      String(parsed.getUTCMonth() + 1).padStart(2, '0'),
+      String(parsed.getUTCDate()).padStart(2, '0'),
+    ].join('-')
+
+    return normalized === trimmed ? trimmed : null
+  }
 
   const aliasMatch = DAY_ALIASES.get(normalizeDayLabel(trimmed))
   if (aliasMatch) return aliasMatch
@@ -110,7 +120,7 @@ function normalizeDay(value: string): string | null {
   const day = String(parsed.getUTCDate()).padStart(2, '0')
   const normalized = `${year}-${month}-${day}`
 
-  return VALID_DAYS.has(normalized) ? normalized : null
+  return normalized
 }
 
 function formatLegacyDay(day: string): string {
@@ -161,7 +171,7 @@ export function sanitizeShiftInput(
   }
 
   if (!day) {
-    return { error: `${label}: day must be one of the Boulder Startup Week dates` }
+    return { error: `${label}: day must be a valid date` }
   }
 
   if (!start || !end) {

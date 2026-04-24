@@ -40,6 +40,12 @@ function toDateYMD(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+function addDays(day: string, days: number): string {
+  const date = new Date(`${day}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return toDateYMD(date)
+}
+
 export function ShiftCalendar({
   shifts,
   assignments,
@@ -48,6 +54,12 @@ export function ShiftCalendar({
   onMoveShift,
   onDropVolunteer,
 }: ShiftCalendarProps) {
+  const sortedShiftDays = [...new Set(shifts.map((shift) => shift.day))].sort((a, b) =>
+    a.localeCompare(b)
+  )
+  const calendarStart = sortedShiftDays[0] ?? '2026-05-04'
+  const calendarEnd = addDays(sortedShiftDays.at(-1) ?? '2026-05-08', 1)
+
   const events: EventInput[] = shifts.map((shift) => {
     const shiftAssignments = assignments.filter((a) => a.shift_id === shift.id)
     const filled = shift.filled_slots ?? shiftAssignments.length
@@ -135,8 +147,8 @@ export function ShiftCalendar({
       <FullCalendar
         plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
-        initialDate="2026-05-04"
-        validRange={{ start: '2026-05-04', end: '2026-05-09' }}
+        initialDate={calendarStart}
+        validRange={{ start: calendarStart, end: calendarEnd }}
         weekends={true}
         headerToolbar={{
           left: 'prev,next today',

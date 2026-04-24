@@ -222,18 +222,21 @@ export function ShiftModal({
 
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Day</label>
-              <select
+              <input
+                type="date"
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
+                list="shift-modal-day-options"
                 className="w-full px-3 py-2 border border-gray-border rounded-md"
                 required
-              >
+              />
+              <datalist id="shift-modal-day-options">
                 {EVENT_DAYS.map((d) => (
                   <option key={d.date} value={d.date}>
                     {d.label}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
