@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/roles'
 import { NextResponse } from 'next/server'
 
+interface VolunteerContactPayload {
+  name?: string
+  email?: string
+  phone?: string
+}
+
 async function recalculateAssignedShiftCount(
   supabase: Awaited<ReturnType<typeof createClient>>,
   volunteerId: string
@@ -18,6 +24,90 @@ async function recalculateAssignedShiftCount(
       .update({ shift_count: count ?? 0 })
       .eq('id', volunteerId)
   }
+}
+
+function normalizeContact(contact: VolunteerContactPayload | null | undefined) {
+  const name = contact?.name?.trim() ?? ''
+  const email = contact?.email?.trim().toLowerCase() ?? ''
+  const phone = contact?.phone?.trim() ?? ''
+
+  if (!name || !phone) {
+    return { error: 'Volunteer name and phone are required' }
+  }
+
+  return {
+    value: {
+      name,
+      email: email || null,
+      phone,
+    },
+  }
+}
+
+async function findOrCreateContactVolunteer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contactPayload: VolunteerContactPayload,
+  shiftDay: string
+) {
+  const normalized = normalizeContact(contactPayload)
+  if (normalized.error || !normalized.value) {
+    return { error: normalized.error || 'Invalid volunteer contact' }
+  }
+
+  const contact = normalized.value
+
+  const { data: phoneMatches, error: phoneLookupError } = await supabase
+    .from('volunteers')
+    .select('id, availability, fallback_name, fallback_email, phone, status, user_id')
+    .eq('phone', contact.phone)
+
+  if (phoneLookupError) return { error: phoneLookupError.message }
+
+  let volunteer = phoneMatches?.find((match) => !match.user_id) ?? null
+
+  if (!volunteer && contact.email) {
+    const { data: emailMatches, error: emailLookupError } = await supabase
+      .from('volunteers')
+      .select('id, availability, fallback_name, fallback_email, phone, status, user_id')
+      .ilike('fallback_email', contact.email)
+
+    if (emailLookupError) return { error: emailLookupError.message }
+    volunteer = emailMatches?.find((match) => !match.user_id) ?? null
+  }
+
+  if (!volunteer) {
+    const { data: created, error: createError } = await supabase
+      .from('volunteers')
+      .insert({
+        fallback_name: contact.name,
+        fallback_email: contact.email,
+        phone: contact.phone,
+        availability: [shiftDay],
+        status: 'confirmed',
+      })
+      .select('id, availability, fallback_name, fallback_email, phone, status, user_id')
+      .single()
+
+    if (createError) return { error: createError.message }
+    return { volunteer: created }
+  }
+
+  const nextAvailability = Array.from(new Set([...(volunteer.availability ?? []), shiftDay]))
+
+  const { data: updated, error: updateError } = await supabase
+    .from('volunteers')
+    .update({
+      fallback_name: volunteer.fallback_name || contact.name,
+      fallback_email: volunteer.fallback_email || contact.email,
+      availability: nextAvailability,
+      status: 'confirmed',
+    })
+    .eq('id', volunteer.id)
+    .select('id, availability, fallback_name, fallback_email, phone, status, user_id')
+    .single()
+
+  if (updateError) return { error: updateError.message }
+  return { volunteer: updated }
 }
 
 export async function POST(request: Request) {
@@ -40,36 +130,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { volunteerId, shiftId } = await request.json()
+    const { volunteerId, shiftId, volunteerContact } = await request.json()
 
-    if (!volunteerId || !shiftId) {
-      return NextResponse.json({ error: 'volunteerId and shiftId are required' }, { status: 400 })
+    if ((!volunteerId && !volunteerContact) || !shiftId) {
+      return NextResponse.json(
+        { error: 'shiftId and either volunteerId or volunteerContact are required' },
+        { status: 400 }
+      )
     }
 
-    const [{ data: shift, error: shiftError }, { data: volunteer, error: volunteerError }] =
-      await Promise.all([
-        supabase
-          .from('volunteer_shifts')
-          .select('id, day, start_time, end_time, total_slots, filled_slots')
-          .eq('id', shiftId)
-          .single(),
-        supabase
-          .from('volunteers')
-          .select(`
-            id,
-            availability,
-            status,
-            users (
-              blocked
-            )
-          `)
-          .eq('id', volunteerId)
-          .single(),
-      ])
+    const { data: shift, error: shiftError } = await supabase
+      .from('volunteer_shifts')
+      .select('id, day, start_time, end_time, total_slots, filled_slots')
+      .eq('id', shiftId)
+      .single()
 
     if (shiftError || !shift) {
       return NextResponse.json({ error: shiftError?.message || 'Shift not found' }, { status: 404 })
     }
+
+    let resolvedVolunteerId = volunteerId as string | undefined
+
+    if (!resolvedVolunteerId && volunteerContact) {
+      const result = await findOrCreateContactVolunteer(supabase, volunteerContact, shift.day)
+      if (result.error || !result.volunteer) {
+        return NextResponse.json(
+          { error: result.error || 'Failed to create volunteer contact' },
+          { status: 400 }
+        )
+      }
+      resolvedVolunteerId = result.volunteer.id
+    }
+
+    if (!resolvedVolunteerId) {
+      return NextResponse.json({ error: 'Volunteer is required' }, { status: 400 })
+    }
+
+    const { data: volunteer, error: volunteerError } = await supabase
+      .from('volunteers')
+      .select(`
+        id,
+        user_id,
+        availability,
+        status,
+        users (
+          blocked
+        )
+      `)
+      .eq('id', resolvedVolunteerId)
+      .single()
 
     if (volunteerError || !volunteer) {
       return NextResponse.json(
@@ -108,7 +217,7 @@ export async function POST(request: Request) {
     const { data: existingAssignment, error: existingAssignmentError } = await supabase
       .from('volunteer_assignments')
       .select('id, status')
-      .eq('volunteer_id', volunteerId)
+      .eq('volunteer_id', resolvedVolunteerId)
       .eq('shift_id', shiftId)
       .maybeSingle()
 
@@ -135,7 +244,7 @@ export async function POST(request: Request) {
           location
         )
       `)
-      .eq('volunteer_id', volunteerId)
+      .eq('volunteer_id', resolvedVolunteerId)
       .in('status', ['requested', 'assigned'])
       .eq('shift.day', shift.day)
 
@@ -192,7 +301,7 @@ export async function POST(request: Request) {
       : supabase
           .from('volunteer_assignments')
           .insert({
-            volunteer_id: volunteerId,
+            volunteer_id: resolvedVolunteerId,
             shift_id: shiftId,
             status: 'assigned',
           })
@@ -205,7 +314,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: mutationError.message }, { status: 500 })
     }
 
-    await recalculateAssignedShiftCount(supabase, volunteerId)
+    await recalculateAssignedShiftCount(supabase, resolvedVolunteerId)
 
     return NextResponse.json({ assignment }, { status: 201 })
   } catch {

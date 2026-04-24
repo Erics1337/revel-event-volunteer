@@ -5,6 +5,7 @@ import type {
   AvailableVolunteer,
   ShiftAssignment,
   VenueRecord,
+  VolunteerContactInput,
   VolunteerShift,
 } from '@/lib/shifts/types'
 
@@ -189,11 +190,15 @@ export function useShiftAdminData() {
     [refresh]
   )
 
-  const assignVolunteer = useCallback(async (shiftId: string, volunteerId: string) => {
+  const assignVolunteer = useCallback(async (
+    shiftId: string,
+    volunteerId: string | null,
+    volunteerContact?: VolunteerContactInput
+  ) => {
     const response = await fetch('/api/volunteers/assign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shiftId, volunteerId }),
+      body: JSON.stringify({ shiftId, volunteerId, volunteerContact }),
     })
 
     if (!response.ok) {

@@ -305,6 +305,8 @@ export type Database = {
         Row: {
           availability: string[] | null
           created_at: string | null
+          fallback_email: string | null
+          fallback_name: string | null
           id: string
           phone: string
           shift_count: number | null
@@ -314,6 +316,8 @@ export type Database = {
         Insert: {
           availability?: string[] | null
           created_at?: string | null
+          fallback_email?: string | null
+          fallback_name?: string | null
           id?: string
           phone: string
           shift_count?: number | null
@@ -323,6 +327,8 @@ export type Database = {
         Update: {
           availability?: string[] | null
           created_at?: string | null
+          fallback_email?: string | null
+          fallback_name?: string | null
           id?: string
           phone?: string
           shift_count?: number | null

@@ -30,7 +30,7 @@ interface Volunteer {
 
 interface Notification {
   id: string
-  user_id: string
+  user_id: string | null
   type: string
   subject: string
   body: string
@@ -49,6 +49,8 @@ interface EligibleAssignment {
   volunteer: {
     id: string
     user_id: string | null
+    fallback_name?: string | null
+    fallback_email?: string | null
     status?: string
     user: {
       name?: string
@@ -56,6 +58,17 @@ interface EligibleAssignment {
     } | null
   } | null
   shift: Shift | null
+}
+
+function resolveVolunteerContact(volunteer: EligibleAssignment['volunteer']): Volunteer | null {
+  if (!volunteer) return null
+
+  return {
+    id: volunteer.id,
+    user_id: volunteer.user_id ?? null,
+    name: volunteer.user?.name || volunteer.fallback_name || 'Volunteer',
+    email: volunteer.user?.email || volunteer.fallback_email || '',
+  }
 }
 
 interface ReminderDispatchCounts {
@@ -155,7 +168,7 @@ async function getEligibleAssignments(supabase: SupabaseClient<Database>) {
       volunteer_id,
       shift_id,
       status,
-      volunteer:volunteers(id, user_id, status, user:users(name, email)),
+      volunteer:volunteers(id, user_id, fallback_name, fallback_email, status, user:users(name, email)),
       shift:volunteer_shifts(id, role, day, start_time, end_time, location, address)
     `)
     .eq('status', 'assigned')
@@ -177,6 +190,8 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
     .select(`
       id,
       user_id,
+      fallback_name,
+      fallback_email,
       user:users(name, email)
     `)
     .eq('id', volunteerId)
@@ -194,14 +209,12 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
 
   const volunteer = volunteerData as any
   const user = volunteer.user as any
-
-  if (!volunteer.user_id) {
-    throw new Error('Volunteer is missing a linked user record')
-  }
+  const email = user?.email || volunteer.fallback_email || ''
+  if (!email) throw new Error('Volunteer is missing an email address')
 
   const template = volunteerConfirmationTemplate(shift as Shift, {
-    name: user?.name || 'Volunteer',
-    email: user?.email || '',
+    name: user?.name || volunteer.fallback_name || 'Volunteer',
+    email,
   })
 
   const { data: notification } = await notificationsTable(supabase)
@@ -345,15 +358,9 @@ export async function runReminderDispatch(options?: {
       continue
     }
 
-    const volunteerUser = assignment.volunteer.user
-    const volunteer: Volunteer = {
-      id: assignment.volunteer.id,
-      user_id: assignment.volunteer.user_id ?? null,
-      name: volunteerUser?.name || 'Volunteer',
-      email: volunteerUser?.email || '',
-    }
+    const volunteer = resolveVolunteerContact(assignment.volunteer)
 
-    if (!volunteer.user_id || !volunteer.email) {
+    if (!volunteer?.email) {
       continue
     }
 
@@ -370,11 +377,16 @@ export async function runReminderDispatch(options?: {
         continue
       }
 
-      const { data: existing, error: existingError } = await notificationsTable(supabase)
+      let existingQuery = notificationsTable(supabase)
         .select('id')
         .eq('shift_id', assignment.shift.id)
-        .eq('user_id', volunteer.user_id)
         .eq('type', rule.type)
+
+      existingQuery = volunteer.user_id
+        ? existingQuery.eq('user_id', volunteer.user_id)
+        : existingQuery.is('user_id', null)
+
+      const { data: existing, error: existingError } = await existingQuery
         .maybeSingle()
 
       if (existingError) {
@@ -466,6 +478,7 @@ export async function sendBulkMessage(
     .select(`
       id,
       user_id,
+      fallback_email,
       user:users(email)
     `)
     .in('id', [...new Set(volunteerIds)])
@@ -488,8 +501,8 @@ export async function sendBulkMessage(
 
   for (const volunteerData of volunteers) {
     const volunteer = volunteerData as any
-    const email = volunteer.user?.email
-    if (!email || !volunteer.user_id) {
+    const email = volunteer.user?.email || volunteer.fallback_email
+    if (!email) {
       failed++
       continue
     }
@@ -540,7 +553,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
       volunteer_id,
       shift_id,
       status,
-      volunteer:volunteers(id, user_id, status, user:users(name, email)),
+      volunteer:volunteers(id, user_id, fallback_name, fallback_email, status, user:users(name, email)),
       shift:volunteer_shifts(id, role, day, start_time, end_time, location, address)
     `)
     .eq('status', 'assigned')
@@ -572,24 +585,23 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
     }
 
     const shift = assignmentAny.shift as Shift
-    const volunteerUser = assignmentAny.volunteer.user as any
-    const volunteer: Volunteer = {
-      id: assignmentAny.volunteer.id,
-      user_id: assignmentAny.volunteer.user_id ?? null,
-      name: volunteerUser?.name || 'Volunteer',
-      email: volunteerUser?.email || '',
-    }
+    const volunteer = resolveVolunteerContact(assignmentAny.volunteer)
 
-    if (!volunteer.user_id || !volunteer.email) {
+    if (!volunteer?.email) {
       failed++
       continue
     }
 
-    const { data: existing } = await notificationsTable(supabase)
+    let existingQuery = notificationsTable(supabase)
       .select('id')
       .eq('shift_id', shift.id)
-      .eq('user_id', volunteer.user_id)
       .eq('type', 'reminder_24h')
+
+    existingQuery = volunteer.user_id
+      ? existingQuery.eq('user_id', volunteer.user_id)
+      : existingQuery.is('user_id', null)
+
+    const { data: existing } = await existingQuery
       .maybeSingle()
 
     if (existing) {

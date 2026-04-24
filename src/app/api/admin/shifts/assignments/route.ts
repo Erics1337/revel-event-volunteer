@@ -30,6 +30,8 @@ export async function GET() {
       volunteers (
         id,
         phone,
+        fallback_name,
+        fallback_email,
         status,
         users (
           id,
@@ -58,8 +60,8 @@ export async function GET() {
             id: volunteer.id,
             phone: volunteer.phone,
             status: volunteer.status,
-            name: userRow?.name ?? 'Unknown',
-            email: userRow?.email ?? '',
+            name: userRow?.name ?? volunteer.fallback_name ?? 'Unknown',
+            email: userRow?.email ?? volunteer.fallback_email ?? '',
             user_id: userRow?.id ?? null,
           }
         : null,

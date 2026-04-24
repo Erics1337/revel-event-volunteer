@@ -27,6 +27,12 @@ export interface AvailableVolunteer {
   blocked: boolean
 }
 
+export interface VolunteerContactInput {
+  name: string
+  email?: string
+  phone: string
+}
+
 export interface ShiftAssignment {
   id: string
   shift_id: string

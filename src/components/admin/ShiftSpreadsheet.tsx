@@ -18,6 +18,7 @@ import {
   type AvailableVolunteer,
   type ShiftAssignment,
   type VenueRecord,
+  type VolunteerContactInput,
   type VolunteerShift,
 } from '@/lib/shifts/types'
 import { sanitizeShiftInput, shiftsToCsv, shiftsToTabularData, sortShifts } from '@/lib/shifts/admin'
@@ -46,7 +47,11 @@ interface ShiftSpreadsheetProps {
     id: string,
     values: { name: string; address: string }
   ) => Promise<VenueRecord | undefined>
-  onAssignVolunteer: (shiftId: string, volunteerId: string) => Promise<void>
+  onAssignVolunteer: (
+    shiftId: string,
+    volunteerId: string | null,
+    volunteerContact?: VolunteerContactInput
+  ) => Promise<void>
   onUnassignVolunteer: (shiftId: string, volunteerId: string) => Promise<void>
 }
 
@@ -65,7 +70,11 @@ interface LocationComboboxProps {
 
 interface SpreadsheetTableRowProps {
   assignments: ShiftAssignment[]
-  onAssignVolunteer: (shiftId: string, volunteerId: string) => Promise<void>
+  onAssignVolunteer: (
+    shiftId: string,
+    volunteerId: string | null,
+    volunteerContact?: VolunteerContactInput
+  ) => Promise<void>
   onCreateVenue: (values: { name: string; address: string }) => Promise<VenueRecord | undefined>
   onDelete: () => void
   onDuplicate: () => void
@@ -487,7 +496,26 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
 
       const matches = resolveVolunteer(volunteers, volunteerDraft)
       if (matches.length === 0) {
-        throw new Error('No confirmed volunteer matches the typed name, cell, and email values.')
+        if (!volunteerDraft.name.trim() || !volunteerDraft.phone.trim()) {
+          throw new Error('Enter a volunteer name and cell number to add a no-account volunteer.')
+        }
+
+        if (currentAssignedVolunteer?.id) {
+          await onUnassignVolunteer(row.id, currentAssignedVolunteer.id)
+        }
+
+        await onAssignVolunteer(row.id, null, {
+          name: volunteerDraft.name.trim(),
+          phone: volunteerDraft.phone.trim(),
+          email: volunteerDraft.email.trim() || undefined,
+        })
+        setVolunteerDraftOverride({
+          name: volunteerDraft.name.trim(),
+          phone: volunteerDraft.phone.trim(),
+          email: volunteerDraft.email.trim(),
+        })
+        onMessage('Added no-account volunteer and assigned them to this shift.')
+        return
       }
       if (matches.length > 1) {
         throw new Error('Multiple volunteers match those values. Add a more specific email or cell number.')
