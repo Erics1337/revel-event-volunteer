@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/auth-context';
 import { PhoneRequiredModal } from '@/components/PhoneRequiredModal';
@@ -24,6 +25,7 @@ export default function RootLayout({
           {children}
           <PhoneRequiredModal />
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
