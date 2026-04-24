@@ -44,6 +44,11 @@ function getEventColors(openSpots: number) {
   }
 }
 
+function getOpenSpotLabel(openSpots: number) {
+  if (openSpots >= 3) return '3+ spots open'
+  return `${openSpots} spot${openSpots === 1 ? '' : 's'} open`
+}
+
 export function AdminCoverageCalendar({
   shifts,
   activeDay,
@@ -73,6 +78,15 @@ export function AdminCoverageCalendar({
           },
         }
       }),
+    [shifts]
+  )
+
+  const visibleOpenSpotCounts = useMemo(
+    () =>
+      [...new Set(shifts.map((shift) => Math.max(0, shift.total_slots - shift.filled_slots)))]
+        .filter((openSpots) => openSpots > 0)
+        .map((openSpots) => Math.min(openSpots, 3))
+        .sort((left, right) => left - right),
     [shifts]
   )
 
@@ -132,11 +146,26 @@ export function AdminCoverageCalendar({
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-xs font-medium text-[#5f6772]">
-        <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-[#31585c]">1 spot open</span>
-        <span className="rounded-full bg-[#ef8f3d] px-3 py-1 text-white">2 spots open</span>
-        <span className="rounded-full bg-[#d97706] px-3 py-1 text-white">3+ spots open</span>
-      </div>
+      {visibleOpenSpotCounts.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2 text-xs font-medium text-[#5f6772]">
+          {visibleOpenSpotCounts.map((openSpots) => {
+            const colors = getEventColors(openSpots)
+
+            return (
+              <span
+                key={openSpots}
+                className="rounded-full px-3 py-1"
+                style={{
+                  backgroundColor: colors.backgroundColor,
+                  color: colors.textColor,
+                }}
+              >
+                {getOpenSpotLabel(openSpots)}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-[#e7ebef]">
         <FullCalendar

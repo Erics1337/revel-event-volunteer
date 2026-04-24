@@ -67,6 +67,7 @@ export default function AdminVolunteersPage() {
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [coveredShiftSearch, setCoveredShiftSearch] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [shiftFilters, setShiftFilters] = useState({
@@ -248,14 +249,23 @@ export default function AdminVolunteersPage() {
     [shifts]
   )
 
+  const totalFilledSlots = useMemo(
+    () => shifts.reduce((acc, shift) => acc + shift.filled_slots, 0),
+    [shifts]
+  )
+
+  const totalShiftSlots = useMemo(
+    () => shifts.reduce((acc, shift) => acc + shift.total_slots, 0),
+    [shifts]
+  )
+
+  const totalOpenSlots = Math.max(0, totalShiftSlots - totalFilledSlots)
+
   const fillRate = useMemo(() => {
-    if (shifts.length === 0) return 0
+    if (totalShiftSlots === 0) return 0
 
-    const filled = shifts.reduce((acc, shift) => acc + shift.filled_slots, 0)
-    const total = shifts.reduce((acc, shift) => acc + shift.total_slots, 0)
-
-    return total > 0 ? Math.round((filled / total) * 100) : 0
-  }, [shifts])
+    return Math.round((totalFilledSlots / totalShiftSlots) * 100)
+  }, [totalFilledSlots, totalShiftSlots])
 
   const getAssigned = useCallback(
     (shift: VolunteerShift) =>
@@ -673,14 +683,16 @@ export default function AdminVolunteersPage() {
     )
   }
 
-  const allShiftRoles = [...new Set(shifts.map((shift) => shift.role))].sort()
-  const allShiftLocations = [...new Set(shifts.map((shift) => shift.location))].sort()
+  const allShiftRoles = [...new Set(coveredShifts.map((shift) => shift.role))].sort()
+  const allShiftLocations = [...new Set(coveredShifts.map((shift) => shift.location))].sort()
   const coverageDays = Array.from(new Set(openShifts.map((shift) => shift.day))).sort((a, b) =>
     a.localeCompare(b)
   )
   const activeCoverageDay = coverageDays.includes(coverageDay)
     ? coverageDay
     : coverageDays[0] ?? ''
+
+  const coveredShiftQuery = coveredShiftSearch.trim().toLowerCase()
 
   const filteredShifts = coveredShifts.filter((shift) => {
     if (shiftFilters.days.length > 0 && !shiftFilters.days.includes(shift.day)) return false
@@ -692,6 +704,25 @@ export default function AdminVolunteersPage() {
       return false
     }
 
+    if (coveredShiftQuery) {
+      const day = EVENT_DAYS.find((item) => item.date === shift.day)
+      const assigned = getAssigned(shift)
+      const searchableText = [
+        shift.role,
+        shift.location,
+        shift.day,
+        day?.label,
+        shift.start_time,
+        shift.end_time,
+        ...assigned.flatMap((volunteer) => [volunteer.name, volunteer.email, volunteer.phone]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      if (!searchableText.includes(coveredShiftQuery)) return false
+    }
+
     return true
   })
 
@@ -699,6 +730,8 @@ export default function AdminVolunteersPage() {
     shiftFilters.days.length > 0 ||
     shiftFilters.roles.length > 0 ||
     shiftFilters.locations.length > 0
+  const hasCoveredShiftSearch = coveredShiftQuery.length > 0
+  const hasCoveredShiftFilters = hasShiftFilters || hasCoveredShiftSearch
 
   return (
     <div className="min-h-screen bg-gray-light">
@@ -772,15 +805,13 @@ export default function AdminVolunteersPage() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold font-accent text-teal">
-                  {confirmedVolunteers.length}
+                  {totalFilledSlots}
                 </p>
-                <p className="text-gray-text">Confirmed</p>
+                <p className="text-gray-text">Filled slots</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold font-accent text-orange">
-                  {volunteers.filter((volunteer) => volunteer.status === 'pending').length}
-                </p>
-                <p className="text-gray-text">Pending</p>
+                <p className="text-2xl font-bold font-accent text-orange">{totalOpenSlots}</p>
+                <p className="text-gray-text">Open slots</p>
               </div>
             </div>
           </div>
@@ -1005,39 +1036,73 @@ export default function AdminVolunteersPage() {
         )}
 
         {activeTab === 'shifts' && (
-          <div className="flex flex-col gap-4">
-            <VolunteerFilters
-              dayFilters={shiftFilters.days}
-              locationFilters={shiftFilters.locations}
-              roleFilters={shiftFilters.roles}
-              availableDays={EVENT_DAYS.map((day) => ({ date: day.date, label: day.label }))}
-              availableLocations={allShiftLocations}
-              availableRoles={allShiftRoles}
-              onToggleDayFilter={(day) => toggleShiftFilter('days', day)}
-              onToggleLocationFilter={(location) => toggleShiftFilter('locations', location)}
-              onToggleRoleFilter={(role) => toggleShiftFilter('roles', role)}
-              onClearDayFilters={() => setShiftFilters((current) => ({ ...current, days: [] }))}
-              onClearLocationFilters={() =>
-                setShiftFilters((current) => ({ ...current, locations: [] }))
-              }
-              onClearRoleFilters={() => setShiftFilters((current) => ({ ...current, roles: [] }))}
-              onClearAllFilters={() =>
-                setShiftFilters({ days: [], locations: [], roles: [] })
-              }
-            />
+          <div className="flex flex-col gap-5">
+            <div className="rounded-md border border-gray-border bg-white">
+              <div className="border-b border-gray-border p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="relative flex-1">
+                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-mid" />
+                    <input
+                      className="input input-icon text-sm"
+                      placeholder="Search covered shifts by volunteer, role, location, or time..."
+                      value={coveredShiftSearch}
+                      onChange={(event) => setCoveredShiftSearch(event.target.value)}
+                    />
+                  </div>
+                  {hasCoveredShiftFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoveredShiftSearch('')
+                        setShiftFilters({ days: [], locations: [], roles: [] })
+                      }}
+                      className="text-sm font-medium text-gray-text underline underline-offset-2 transition-colors hover:text-teal"
+                    >
+                      Reset view
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-text">
-                {filteredShifts.length} shift{filteredShifts.length !== 1 ? 's' : ''}
-              </p>
-              {hasShiftFilters && (
-                <button
-                  onClick={() => setShiftFilters({ days: [], locations: [], roles: [] })}
-                  className="text-sm text-gray-text hover:text-teal underline underline-offset-2"
-                >
-                  Clear all filters
-                </button>
-              )}
+              <div className="p-4">
+                <VolunteerFilters
+                  dayFilters={shiftFilters.days}
+                  locationFilters={shiftFilters.locations}
+                  roleFilters={shiftFilters.roles}
+                  availableDays={EVENT_DAYS.map((day) => ({ date: day.date, label: day.label }))}
+                  availableLocations={allShiftLocations}
+                  availableRoles={allShiftRoles}
+                  onToggleDayFilter={(day) => toggleShiftFilter('days', day)}
+                  onToggleLocationFilter={(location) => toggleShiftFilter('locations', location)}
+                  onToggleRoleFilter={(role) => toggleShiftFilter('roles', role)}
+                  onClearDayFilters={() =>
+                    setShiftFilters((current) => ({ ...current, days: [] }))
+                  }
+                  onClearLocationFilters={() =>
+                    setShiftFilters((current) => ({ ...current, locations: [] }))
+                  }
+                  onClearRoleFilters={() =>
+                    setShiftFilters((current) => ({ ...current, roles: [] }))
+                  }
+                  onClearAllFilters={() =>
+                    setShiftFilters({ days: [], locations: [], roles: [] })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-charcoal">
+                  Showing {filteredShifts.length} of {coveredShifts.length} covered shift
+                  {coveredShifts.length === 1 ? '' : 's'}
+                </p>
+                {hasCoveredShiftFilters && (
+                  <p className="text-xs text-gray-text">
+                    Narrowed by search or filters. Reset the view to see every covered shift.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -1045,47 +1110,127 @@ export default function AdminVolunteersPage() {
                 const open = shift.total_slots - shift.filled_slots
                 const pct = Math.round((shift.filled_slots / shift.total_slots) * 100)
                 const day = EVENT_DAYS.find((item) => item.date === shift.day)
+                const assigned = getAssigned(shift)
 
                 return (
                   <div
                     key={shift.id}
-                    className="card flex flex-col sm:flex-row sm:items-center gap-4"
+                    className="rounded-md border border-success/20 bg-white p-4 shadow-card transition-shadow hover:shadow-md"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="badge-default text-xs">{shift.role}</span>
-                        <span className="text-xs text-gray-text">
-                          {day?.label || shift.day} · {shift.start_time}-{shift.end_time}
-                        </span>
-                      </div>
-                      <p className="text-sm text-charcoal">{shift.location}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="w-28 bg-gray-border rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full ${
-                              pct === 100 ? 'bg-success' : 'bg-teal-500'
-                            }`}
-                            style={{ width: `${pct}%` }}
-                          />
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+                            <CheckIcon className="h-3.5 w-3.5" />
+                            Full
+                          </span>
+                          <span className="badge-default text-xs">{shift.role}</span>
+                          <span className="text-xs font-medium text-gray-text">
+                            {day?.label || shift.day} · {shift.start_time}-{shift.end_time}
+                          </span>
                         </div>
-                        <span className="text-xs text-gray-text">
-                          {shift.filled_slots}/{shift.total_slots} filled
-                          {open > 0 && (
-                            <span className="text-orange font-medium"> · {open} open</span>
+                        <p className="truncate text-base font-semibold text-charcoal">
+                          {shift.location}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-text">
+                          <span className="font-semibold text-success">
+                            {shift.filled_slots}/{shift.total_slots} filled
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span>
+                            {assigned.length} assigned volunteer
+                            {assigned.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 lg:w-[420px]">
+                        <div className="flex flex-wrap gap-2">
+                          {assigned.slice(0, 4).map((volunteer) => (
+                            <button
+                              key={volunteer.id}
+                              type="button"
+                              onClick={() =>
+                                setMessageModal({ kind: 'volunteer', volunteerId: volunteer.id })
+                              }
+                              className="rounded-full border border-gray-border bg-gray-light px-3 py-1 text-xs font-medium text-charcoal transition-colors hover:border-teal-500 hover:text-teal"
+                              title={`Message ${volunteer.email}`}
+                            >
+                              {volunteer.name}
+                            </button>
+                          ))}
+                          {assigned.length > 4 && (
+                            <span className="rounded-full border border-gray-border px-3 py-1 text-xs font-medium text-gray-text">
+                              +{assigned.length - 4} more
+                            </span>
                           )}
-                        </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-border">
+                            <div
+                              className="h-2 rounded-full bg-success"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="w-14 text-right text-xs font-semibold text-success">
+                            {pct}%
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleSendShiftReminder(shift)}
+                          disabled={sendingShiftReminderId === shift.id}
+                          className="rounded-sm border border-gray-border px-3 py-2 text-sm font-medium text-charcoal transition-colors hover:bg-gray-light disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {sendingShiftReminderId === shift.id ? 'Sending...' : 'Remind'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setManageShiftId(shift.id)}
+                          className="rounded-sm bg-charcoal px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+                        >
+                          Manage
+                        </button>
                       </div>
                     </div>
-                    {pct === 100 && (
-                      <span className="text-xs text-success font-semibold shrink-0">Full</span>
+
+                    {open > 0 && (
+                      <p className="mt-3 rounded-sm bg-orange-light px-3 py-2 text-xs font-medium text-orange-dark">
+                        This shift is no longer full and will move back to Needs Coverage after
+                        refresh.
+                      </p>
                     )}
                   </div>
                 )
               })}
               {filteredShifts.length === 0 && (
-                <p className="text-center text-gray-text py-10 text-sm">
-                  No shifts match those filters.
-                </p>
+                <div className="rounded-md border border-dashed border-gray-border bg-white py-12 text-center">
+                  <p className="font-accent text-lg font-semibold text-charcoal">
+                    {coveredShifts.length === 0
+                      ? 'No covered shifts yet'
+                      : 'No covered shifts match this view'}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-text">
+                    {coveredShifts.length === 0
+                      ? 'Covered shifts will appear here as soon as every slot is filled.'
+                      : 'Try a broader search or reset the filters to bring the list back.'}
+                  </p>
+                  {hasCoveredShiftFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoveredShiftSearch('')
+                        setShiftFilters({ days: [], locations: [], roles: [] })
+                      }}
+                      className="mt-4 rounded-sm border border-teal-500 px-4 py-2 text-sm font-medium text-teal transition-colors hover:bg-teal-50"
+                    >
+                      Reset view
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

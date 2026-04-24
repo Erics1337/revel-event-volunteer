@@ -102,7 +102,7 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
             <th className="text-left px-4 py-3 font-semibold text-charcoal hidden sm:table-cell">Phone</th>
             <th className="text-left px-4 py-3 font-semibold text-charcoal hidden md:table-cell">Availability</th>
             <th className="text-left px-4 py-3 font-semibold text-charcoal">Shifts</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal">Status</th>
+            <th className="text-left px-4 py-3 font-semibold text-charcoal">Account</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -146,12 +146,12 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
                   <td className="px-4 py-3">
                     <span
                       className={`text-xs px-2 py-0.5 rounded-pill font-medium ${
-                        volunteer.status === 'confirmed'
+                        volunteer.user_id
                           ? 'bg-teal-light text-teal'
-                          : 'bg-orange-light text-orange'
+                          : 'bg-gray-light text-gray-text'
                       }`}
                     >
-                      {volunteer.status}
+                      {volunteer.user_id ? 'Linked' : 'No account'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
