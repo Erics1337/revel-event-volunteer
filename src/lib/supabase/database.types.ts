@@ -88,6 +88,7 @@ export type Database = {
           created_at: string | null
           error_message: string | null
           id: string
+          scheduled_for: string
           sent_at: string | null
           shift_id: string | null
           status: string
@@ -100,6 +101,7 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          scheduled_for: string
           sent_at?: string | null
           shift_id?: string | null
           status?: string
@@ -112,6 +114,7 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          scheduled_for?: string
           sent_at?: string | null
           shift_id?: string | null
           status?: string
