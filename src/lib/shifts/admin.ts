@@ -123,6 +123,8 @@ function normalizeDay(value: string): string | null {
   const aliasMatch = DAY_ALIASES.get(normalizeDayLabel(trimmed))
   if (aliasMatch) return aliasMatch
 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+
   const parsed = new Date(trimmed)
   if (Number.isNaN(parsed.getTime())) return null
 
