@@ -101,6 +101,7 @@ export function OpenShiftsPage() {
   const [selectedCalendarShiftId, setSelectedCalendarShiftId] = useState<string | null>(null)
   const [highlightedShiftId, setHighlightedShiftId] = useState<string | null>(null)
   const [requestFeedback, setRequestFeedback] = useState<RequestFeedback | null>(null)
+  const [confirmShift, setConfirmShift] = useState<VolunteerShift | null>(null)
   const shiftCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const hasLoadedInitialSetupAvailability = useRef(false)
 
@@ -328,7 +329,7 @@ export function OpenShiftsPage() {
     router.push('/auth/login?redirectTo=/open-shifts')
   }
 
-  const handlePrimaryAction = async (shift: VolunteerShift) => {
+  const handlePrimaryAction = (shift: VolunteerShift) => {
     setErrorMessage(null)
     setMessage(null)
     setRequestFeedback(null)
@@ -339,9 +340,17 @@ export function OpenShiftsPage() {
     }
 
     if (!hasVolunteerSetup) {
-      setErrorMessage('Complete your volunteer setup before requesting a shift.')
+      setErrorMessage('Complete your volunteer setup before signing up for a shift.')
       return
     }
+
+    setConfirmShift(shift)
+  }
+
+  const handleConfirmSignUp = async () => {
+    if (!confirmShift) return
+    const shift = confirmShift
+    setConfirmShift(null)
 
     setSubmittingShiftId(shift.id)
     try {
@@ -479,7 +488,7 @@ export function OpenShiftsPage() {
             Volunteer at Boulder Startup Week 2026
           </h1>
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
-            {openCount} shifts still need coverage. Request a role, save your availability, and keep your volunteer plan in one place.
+            {openCount} shifts still need coverage. Sign up for a role, save your availability, and keep your volunteer plan in one place.
           </p>
         </div>
       </section>
@@ -813,6 +822,70 @@ export function OpenShiftsPage() {
           </div>
         ) : null}
 
+        {confirmShift ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/45 px-4 py-6"
+            onClick={() => setConfirmShift(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5f8f92]">
+                    Confirm Sign-Up
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold text-[#3f4a56]">
+                    {confirmShift.role}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmShift(null)}
+                  className="rounded-full border border-[#d8dde3] p-2 text-[#6f7883] transition hover:border-[#6aa9ae] hover:text-[#6aa9ae]"
+                  aria-label="Cancel sign-up"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#dbe7e8] bg-[#f6fafa] px-4 py-3 text-sm text-[#505966]">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon />
+                  <span>{formatDayLabel(confirmShift.day).full}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ClockIcon />
+                  <span>{formatTimeLabel(confirmShift.start_time)} – {formatTimeLabel(confirmShift.end_time)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <PinIcon />
+                  <span>{confirmShift.location}</span>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-[#6f7883]">
+                Ready to sign up for this shift? You can cancel later from your schedule.
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmShift(null)}
+                  className="rounded-md border border-[#d8dde3] px-4 py-2 text-sm font-semibold text-[#6f7883] transition hover:border-[#a0a6af] hover:text-[#505966]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handleConfirmSignUp() }}
+                  className="rounded-md bg-[#6aa9ae] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#5b9ea3]"
+                >
+                  Yes, sign me up
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {requestFeedback ? (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/45 px-4 py-6"
@@ -1116,7 +1189,7 @@ function ShiftCard({
                 : 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
             }`}
           >
-            {submitting ? 'Submitting...' : full ? 'Full' : 'Request to volunteer'}
+            {submitting ? 'Signing up...' : full ? 'Full' : 'Sign up'}
           </button>
         )}
       </div>

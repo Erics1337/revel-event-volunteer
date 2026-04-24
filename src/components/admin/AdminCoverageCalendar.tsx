@@ -78,7 +78,10 @@ export function AdminCoverageCalendar({
 
   useEffect(() => {
     if (!activeDay) return
-    calendarRef.current?.getApi().gotoDate(activeDay)
+    const id = window.setTimeout(() => {
+      calendarRef.current?.getApi().gotoDate(activeDay)
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [activeDay])
 
   const selectedDayIndex = availableDays.indexOf(activeDay)
