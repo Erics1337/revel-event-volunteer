@@ -45,6 +45,7 @@ const emailStyles = {
   shiftRole: 'font-size: 18px; font-weight: 600; color: #1a1a1a; margin: 0 0 10px 0;',
   shiftDetail: 'margin: 5px 0; color: #6f7883;',
   button: 'display: inline-block; background: #5aaeb3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;',
+  contactButton: 'display: inline-block; background: transparent; color: #5aaeb3; padding: 11px 22px; text-decoration: none; border-radius: 6px; margin-top: 12px; margin-left: 12px; border: 2px solid #5aaeb3; font-weight: 600;',
   footer: 'text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6f7883; font-size: 14px;',
 }
 
@@ -79,9 +80,10 @@ export function volunteerConfirmationTemplate(shift: Shift, volunteer: Volunteer
     <p>You'll receive reminder emails 24 hours and 1 hour before your shift.</p>
     
     <a href="https://boulderstartupweek.com/open-shifts" style="${emailStyles.button}">View My Shifts</a>
+    <a href="mailto:volunteer@bsw.com" style="${emailStyles.contactButton}">Contact Us</a>
     
     <div style="${emailStyles.footer}">
-      <p>Questions? Reply to this email or contact the volunteer team.</p>
+      <p>Questions? Email us at <a href="mailto:volunteer@bsw.com" style="color: #5aaeb3;">volunteer@bsw.com</a></p>
       <p>Boulder Startup Week · May 4–8, 2026</p>
     </div>
   </div>
@@ -102,7 +104,7 @@ You'll receive reminder emails 24 hours and 1 hour before your shift.
 
 View your shifts: https://boulderstartupweek.com/open-shifts
 
-Questions? Reply to this email or contact the volunteer team.
+Questions? Email us at volunteer@bsw.com
 
 Boulder Startup Week · May 4–8, 2026`
 
@@ -141,6 +143,7 @@ export function reminder24hTemplate(shift: Shift, volunteer: Volunteer) {
     <p style="margin-top: 20px;"><strong>Can't make it?</strong> Please cancel ASAP so we can find a replacement.</p>
     
     <a href="https://boulderstartupweek.com/open-shifts" style="${emailStyles.button}">Manage My Shifts</a>
+    <a href="mailto:volunteer@bsw.com" style="${emailStyles.contactButton}">Contact Us</a>
     
     <div style="${emailStyles.footer}">
       <p>Boulder Startup Week · May 4–8, 2026</p>
@@ -166,6 +169,8 @@ Please arrive 15 minutes early. You'll get another reminder 1 hour before your s
 Can't make it? Please cancel ASAP so we can find a replacement.
 
 Manage your shifts: https://boulderstartupweek.com/open-shifts
+
+Questions? Email us at volunteer@bsw.com
 
 Boulder Startup Week · May 4–8, 2026`
 
@@ -200,7 +205,10 @@ export function reminder1hTemplate(shift: Shift, volunteer: Volunteer) {
     
     <p>See you there!</p>
     
+    <a href="mailto:volunteer@bsw.com" style="${emailStyles.contactButton}; margin-top: 20px;">Contact Us</a>
+    
     <div style="${emailStyles.footer}">
+      <p>Questions? Email us at <a href="mailto:volunteer@bsw.com" style="color: #5aaeb3;">volunteer@bsw.com</a></p>
       <p>Boulder Startup Week · May 4–8, 2026</p>
     </div>
   </div>
@@ -219,6 +227,8 @@ Time: ${formatTime(shift.start_time)} – ${formatTime(shift.end_time)}
 Location: ${formatLocation(shift)}
 
 See you there!
+
+Questions? Email us at volunteer@bsw.com
 
 Boulder Startup Week · May 4–8, 2026`
 
@@ -244,8 +254,10 @@ export function adminBulkMessageTemplate(subject: string, message: string, event
     
     <div style="white-space: pre-wrap; line-height: 1.6;">${message.replace(/\n/g, '<br>')}</div>
     
+    <a href="mailto:volunteer@bsw.com" style="${emailStyles.contactButton}; margin-top: 20px;">Contact Us</a>
+    
     <div style="${emailStyles.footer}">
-      <p>Questions? Reply to this email.</p>
+      <p>Questions? Email us at <a href="mailto:volunteer@bsw.com" style="color: #5aaeb3;">volunteer@bsw.com</a></p>
       <p>${eventName} · May 4–8, 2026</p>
     </div>
   </div>
