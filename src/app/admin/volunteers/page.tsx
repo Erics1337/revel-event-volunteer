@@ -306,7 +306,6 @@ export default function AdminVolunteersPage() {
         (volunteer) =>
           volunteer.status === 'confirmed' &&
           !volunteer.blocked &&
-          volunteer.availability.includes(shift.day) &&
           !assignedIds.has(volunteer.id) &&
           !hasOverlappingAssignment(shift, volunteer.id)
       )

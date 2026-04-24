@@ -52,7 +52,7 @@ export default function VolunteerSignup() {
     email: '',
     phone: '',
     headline: '',
-    availability: [],
+    availability: DAYS.map((day) => day.date),
     mobility_prefs: [],
     role_prefs: [],
     pref_notes: '',

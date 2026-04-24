@@ -81,6 +81,13 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'shiftId is required', code: 'SHIFT_ID_REQUIRED' }, { status: 400 })
   }
 
+  if (!volunteer.phone) {
+    return NextResponse.json(
+      { error: 'Complete your volunteer setup first', code: 'VOLUNTEER_SETUP_REQUIRED' },
+      { status: 400 }
+    )
+  }
+
   const { data: shift, error: shiftError } = await supabase
     .from('volunteer_shifts')
     .select('id, day, start_time, end_time, total_slots, filled_slots')

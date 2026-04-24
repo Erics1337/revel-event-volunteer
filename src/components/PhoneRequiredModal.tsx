@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/auth-context'
 import { Database } from '@/lib/supabase/database.types'
 import { EVENT_DAYS } from '@/lib/shifts/types'
 
+const DEFAULT_AVAILABILITY = EVENT_DAYS.map((day) => day.date)
+
 interface VolunteerContextResponse {
   volunteer?: {
     availability?: string[] | null
@@ -82,12 +84,12 @@ function RequiredProfileModalBody({
         if (!cancelled) {
           const nextAvailability = payload.volunteer?.availability ?? []
           setSavedAvailability(nextAvailability)
-          setAvailability(nextAvailability)
+          setAvailability(nextAvailability.length > 0 ? nextAvailability : DEFAULT_AVAILABILITY)
         }
       } catch {
         if (!cancelled) {
           setSavedAvailability([])
-          setAvailability([])
+          setAvailability(DEFAULT_AVAILABILITY)
         }
       } finally {
         if (!cancelled) {

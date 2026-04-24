@@ -25,7 +25,7 @@ const ACCENT_FONT = '"Space Grotesk", Inter, system-ui, -apple-system, sans-seri
 
 function defaultAvailability(): AvailabilityMap {
   return Object.fromEntries(
-    DAYS.map((d) => [d.date, { enabled: false, slots: [] }])
+    DAYS.map((d) => [d.date, { enabled: true, slots: TIME_SLOTS.map((slot) => slot.id) }])
   )
 }
 
