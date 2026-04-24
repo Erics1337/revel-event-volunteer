@@ -138,7 +138,9 @@ export function ShiftCalendar({
     try {
       await onDropVolunteer(shift.id, volunteerId)
     } catch (err) {
-      console.error('Failed to assign volunteer:', err)
+      const message =
+        err instanceof Error ? err.message : 'Failed to assign volunteer'
+      alert(message)
     }
   }
 

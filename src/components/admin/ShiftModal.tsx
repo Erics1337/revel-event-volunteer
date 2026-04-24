@@ -116,8 +116,10 @@ export function ShiftModal({
     try {
       await onAssign(assigningId)
       setAssigningId('')
-    } catch {
-      alert('Failed to assign volunteer.')
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to assign volunteer'
+      alert(message)
     }
   }
 
