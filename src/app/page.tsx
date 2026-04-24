@@ -349,14 +349,6 @@ export default function Home() {
                 className="h-auto w-full max-w-[32rem] object-contain drop-shadow-[0_28px_36px_rgba(0,0,0,0.14)]"
               />
               <div className="grid gap-6">
-                <div className="rounded-[28px] border border-black/8 bg-[#e8f5f5] p-6 shadow-[0_16px_35px_rgba(0,0,0,0.06)]">
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal">
-                    Voice check
-                  </p>
-                  <p className="mt-4 text-2xl font-semibold leading-9 text-charcoal">
-                    “We&apos;re done paying for mediocre software. Let&apos;s build something better.”
-                  </p>
-                </div>
                 <div className="rounded-[28px] border border-black/8 bg-white p-6 shadow-[0_16px_35px_rgba(0,0,0,0.06)]">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-orange">
                     The ask
