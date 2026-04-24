@@ -203,13 +203,6 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!(volunteer.availability ?? []).includes(shift.day)) {
-      return NextResponse.json(
-        { error: 'Volunteer is not available for this shift day' },
-        { status: 409 }
-      )
-    }
-
     if ((shift.filled_slots ?? 0) >= shift.total_slots) {
       return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
     }
