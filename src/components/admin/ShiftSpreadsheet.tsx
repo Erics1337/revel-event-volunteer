@@ -10,10 +10,10 @@ import {
 import * as Popover from '@radix-ui/react-popover'
 import { Command } from 'cmdk'
 import {
-  DEFAULT_SHIFT_ROLE,
   EVENT_DAYS,
   VENUE_ADDRESSES,
   VENUE_NAMES,
+  getPreferredShiftRole,
   type AvailableVolunteer,
   type ShiftAssignment,
   type VenueRecord,
@@ -22,6 +22,8 @@ import {
 } from '@/lib/shifts/types'
 import { sanitizeShiftInput, shiftsToCsv, shiftsToTabularData, sortShifts } from '@/lib/shifts/admin'
 import type { ShiftEditorInput } from '@/components/admin/useShiftAdminData'
+import { LocationCombobox } from '@/components/admin/LocationCombobox'
+import { RoleCombobox } from '@/components/admin/RoleCombobox'
 
 interface SpreadsheetRow extends ShiftEditorInput {
   draftKey?: string
@@ -53,21 +55,11 @@ interface ShiftSpreadsheetProps {
   onUnassignVolunteer: (shiftId: string, volunteerId: string) => Promise<void>
 }
 
-interface LocationComboboxProps {
-  address: string
-  currentLocation: string
-  onCreateVenue: (values: { name: string; address: string }) => Promise<VenueRecord | undefined>
-  onMessage: (message: string | null) => void
-  onSelectLocation: (values: { location: string; address: string }) => void
-  onUpdateVenue: (
-    id: string,
-    values: { name: string; address: string }
-  ) => Promise<VenueRecord | undefined>
-  venues: VenueRecord[]
-}
+
 
 interface SpreadsheetTableRowProps {
   assignments: ShiftAssignment[]
+  availableRoles: string[]
   onAssignVolunteer: (
     shiftId: string,
     volunteerId: string | null,
@@ -108,7 +100,7 @@ function toEditableShift(shift: VolunteerShift): SpreadsheetRow {
     end_time: shift.end_time.slice(0, 5),
     location: shift.location,
     address: shift.address ?? VENUE_ADDRESSES[shift.location as keyof typeof VENUE_ADDRESSES] ?? '',
-    total_slots: shift.total_slots,
+    total_slots: 1,
     notes: shift.notes ?? '',
   }
 }
@@ -169,213 +161,11 @@ function resolveVolunteer(volunteers: AvailableVolunteer[], draft: VolunteerDraf
   })
 }
 
-function LocationCombobox({
-  address,
-  currentLocation,
-  onCreateVenue,
-  onMessage,
-  onSelectLocation,
-  onUpdateVenue,
-  venues,
-}: LocationComboboxProps) {
-  const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState<'browse' | 'add' | 'edit'>('browse')
-  const [search, setSearch] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [formName, setFormName] = useState(currentLocation)
-  const [formAddress, setFormAddress] = useState(address)
 
-  const currentVenue = useMemo(
-    () => venues.find((venue) => venue.name === currentLocation) ?? null,
-    [currentLocation, venues]
-  )
-
-  const availableVenues = useMemo(() => {
-    const seen = new Set<string>()
-    return [...venues]
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .filter((venue) => {
-        if (seen.has(venue.name)) return false
-        seen.add(venue.name)
-        return true
-      })
-  }, [venues])
-
-  const filteredVenues = useMemo(
-    () =>
-      availableVenues.filter((venue) => {
-        const needle = search.trim().toLowerCase()
-        if (!needle) return true
-        return [venue.name, venue.address].some((value) => value.toLowerCase().includes(needle))
-      }),
-    [availableVenues, search]
-  )
-
-  const handleSaveVenue = async () => {
-    if (!formName.trim() || !formAddress.trim()) {
-      onMessage('Location name and address are both required.')
-      return
-    }
-
-    setSaving(true)
-    onMessage(null)
-
-    try {
-      const values = { name: formName.trim(), address: formAddress.trim() }
-      const result =
-        mode === 'edit' && currentVenue
-          ? await onUpdateVenue(currentVenue.id, values)
-          : await onCreateVenue(values)
-
-      if (!result) return
-
-      onSelectLocation({ location: result.name, address: result.address })
-      onMessage(mode === 'edit' ? `Updated location ${result.name}.` : `Added location ${result.name}.`)
-      setOpen(false)
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Failed to update location')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Popover.Root
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen)
-
-        if (!nextOpen) {
-          setMode('browse')
-          setSearch('')
-          setFormName(currentLocation)
-          setFormAddress(address)
-        }
-      }}
-    >
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          className={`${inputClassName} flex min-w-[220px] items-center justify-between gap-3 text-left`}
-        >
-          <span className="truncate">{currentLocation}</span>
-          <span className="text-xs font-medium uppercase tracking-wide text-teal">Edit</span>
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          sideOffset={8}
-          align="start"
-          className="z-50 w-[340px] rounded-xl border border-gray-border bg-white p-3 shadow-xl"
-        >
-          {mode === 'browse' ? (
-            <Command className="w-full">
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-text">
-                Location Picker
-              </div>
-              <Command.Input
-                value={search}
-                onValueChange={setSearch}
-                placeholder="Search locations or addresses…"
-                className={`${inputClassName} mb-2`}
-              />
-              <Command.List className="max-h-64 overflow-y-auto rounded-lg border border-gray-border p-1">
-                <Command.Empty className="px-3 py-4 text-sm text-gray-text">
-                  No matching locations.
-                </Command.Empty>
-                {filteredVenues.map((venue) => (
-                  <Command.Item
-                    key={venue.id}
-                    value={`${venue.name} ${venue.address}`}
-                    onSelect={() => {
-                      onSelectLocation({ location: venue.name, address: venue.address })
-                      onMessage(null)
-                      setOpen(false)
-                    }}
-                    className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-charcoal">{venue.name}</div>
-                      <div className="truncate text-xs text-gray-text">{venue.address}</div>
-                    </div>
-                  </Command.Item>
-                ))}
-              </Command.List>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('add')
-                    setFormName(search.trim() || currentLocation)
-                    setFormAddress(address)
-                  }}
-                  className="rounded-full border border-teal/30 bg-teal-50 px-3 py-1 text-xs font-medium text-teal"
-                >
-                  + Add location
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('edit')
-                    setFormName(currentVenue?.name ?? currentLocation)
-                    setFormAddress(currentVenue?.address ?? address)
-                  }}
-                  className="rounded-full border border-gray-border px-3 py-1 text-xs font-medium text-charcoal"
-                >
-                  Edit current
-                </button>
-              </div>
-            </Command>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-gray-text">
-                  {mode === 'edit' ? 'Edit Location' : 'Add Location'}
-                </div>
-                <p className="mt-1 text-sm text-gray-text">
-                  Save a venue and immediately use it in this row.
-                </p>
-              </div>
-              <input
-                type="text"
-                value={formName}
-                onChange={(event) => setFormName(event.target.value)}
-                className={inputClassName}
-                placeholder="Location name"
-              />
-              <textarea
-                value={formAddress}
-                onChange={(event) => setFormAddress(event.target.value)}
-                className={`${inputClassName} min-h-[96px] resize-y`}
-                placeholder="Street address"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleSaveVenue()}
-                  disabled={saving}
-                  className="rounded-full bg-teal px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {saving ? 'Saving…' : mode === 'edit' ? 'Save location' : 'Add location'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode('browse')}
-                  className="rounded-full border border-gray-border px-4 py-2 text-sm font-medium text-charcoal"
-                >
-                  Back
-                </button>
-              </div>
-            </div>
-          )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  )
-}
 
 const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
   assignments,
+  availableRoles,
   onAssignVolunteer,
   onCreateVenue,
   onDelete,
@@ -578,13 +368,12 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
         />
       </td>
       <td className="px-3 py-3">
-        <input
-          type="text"
-          value={row.role}
-          onChange={(event) => onRowChange('role', event.target.value)}
-          list="shift-spreadsheet-role-options"
-          className={`${inputClassName} min-w-[220px]`}
-          placeholder="Shift role"
+        <RoleCombobox
+          currentRole={row.role}
+          availableRoles={availableRoles}
+          onSelectRole={(nextRole) => onRowChange('role', nextRole)}
+          className={`${inputClassName} min-w-[220px] text-left`}
+          actionLabel={null}
         />
       </td>
       <td className="min-w-[240px] px-3 py-3">
@@ -718,6 +507,8 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
             onRowChange('location', location)
             onRowChange('address', address)
           }}
+          className={`${inputClassName} min-w-[220px] text-left`}
+          actionLabel={null}
         />
       </td>
       <td className="px-3 py-3">
@@ -743,15 +534,6 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
           value={row.end_time}
           onChange={(event) => onRowChange('end_time', event.target.value)}
           className={`${inputClassName} min-w-[110px]`}
-        />
-      </td>
-      <td className="px-3 py-3">
-        <input
-          type="number"
-          min={1}
-          value={row.total_slots}
-          onChange={(event) => onRowChange('total_slots', Number(event.target.value))}
-          className={`${inputClassName} min-w-[100px]`}
         />
       </td>
       <td className="px-3 py-3">
@@ -871,7 +653,7 @@ export function ShiftSpreadsheet({
   const addRow = useCallback(() => {
     setRows((current) => [
       ...current,
-      { ...createEmptyShift(availableRoles[0] ?? DEFAULT_SHIFT_ROLE), draftKey: createDraftKey() },
+      { ...createEmptyShift(getPreferredShiftRole(availableRoles)), draftKey: createDraftKey() },
     ])
     setMessage(null)
   }, [availableRoles])
@@ -888,7 +670,7 @@ export function ShiftSpreadsheet({
         end_time: row.end_time,
         location: row.location,
         address: row.address ?? '',
-        total_slots: row.total_slots,
+        total_slots: 1,
         notes: row.notes ?? '',
         draftKey: createDraftKey(),
       }
@@ -919,7 +701,7 @@ export function ShiftSpreadsheet({
 
     try {
       const sanitizedRows = rows.map((row, index) => {
-        const shiftRow = { ...row }
+        const shiftRow = { ...row, total_slots: 1 }
         delete shiftRow.draftKey
         const result = sanitizeShiftInput(shiftRow, index + 1)
         if (result.error || !result.value) {
@@ -1031,7 +813,6 @@ export function ShiftSpreadsheet({
                   'Address',
                   'Start',
                   'End',
-                  'Total Slots',
                   'Notes',
                   '',
                 ].map((header) => (
@@ -1047,7 +828,7 @@ export function ShiftSpreadsheet({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-gray-text">
+                  <td colSpan={11} className="px-4 py-10 text-center text-gray-text">
                     No shifts yet. Add a row or import a CSV to get started.
                   </td>
                 </tr>
@@ -1064,6 +845,7 @@ export function ShiftSpreadsheet({
                     key={`${row.id ?? row.draftKey ?? `draft-${index}`}:${assignmentKey}`}
                     row={row}
                     assignments={rowAssignments}
+                    availableRoles={availableRoles}
                     volunteers={volunteers}
                     venues={venues}
                     onAssignVolunteer={onAssignVolunteer}
@@ -1083,11 +865,7 @@ export function ShiftSpreadsheet({
           </table>
         </div>
       </div>
-      <datalist id="shift-spreadsheet-role-options">
-        {availableRoles.map((role) => (
-          <option key={role} value={role} />
-        ))}
-      </datalist>
+
       <datalist id="shift-spreadsheet-day-options">
         {EVENT_DAYS.map((day) => (
           <option key={day.date} value={day.date}>

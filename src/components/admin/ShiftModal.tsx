@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import * as Popover from '@radix-ui/react-popover'
+import { Command } from 'cmdk'
 import type {
   VolunteerShift,
   ShiftAssignment,
@@ -12,8 +14,23 @@ import {
   EVENT_DAYS,
   VENUE_ADDRESSES,
   VENUE_NAMES,
+  getPreferredShiftRole,
 } from '@/lib/shifts/types'
 import type { ShiftEditorInput } from '@/components/admin/useShiftAdminData'
+import { LocationCombobox } from '@/components/admin/LocationCombobox'
+import { RoleCombobox } from '@/components/admin/RoleCombobox'
+
+const inputClassName =
+  'w-full rounded-md border border-gray-border bg-white px-2 py-2 text-sm text-charcoal outline-none transition focus:border-teal focus:ring-2 focus:ring-teal/20 disabled:bg-gray-100 disabled:text-gray-500'
+
+function matchesVolunteer(volunteer: AvailableVolunteer, search: string) {
+  const normalizedSearch = search.trim().toLowerCase()
+  if (!normalizedSearch) return true
+
+  return [volunteer.name, volunteer.email, volunteer.phone].some((value) =>
+    value.toLowerCase().includes(normalizedSearch)
+  )
+}
 
 interface ShiftModalProps {
   mode: 'create' | 'edit'
@@ -49,7 +66,9 @@ export function ShiftModal({
   onAssign,
   onUnassign,
 }: ShiftModalProps) {
-  const [role, setRole] = useState(initial?.role ?? availableRoles[0] ?? DEFAULT_SHIFT_ROLE)
+  const [role, setRole] = useState(
+    initial?.role ?? getPreferredShiftRole(availableRoles) ?? DEFAULT_SHIFT_ROLE
+  )
   const [day, setDay] = useState(initial?.day ?? EVENT_DAYS[0].date)
   const [startTime, setStartTime] = useState(initial?.start_time?.slice(0, 5) ?? '09:00')
   const [endTime, setEndTime] = useState(initial?.end_time?.slice(0, 5) ?? '11:00')
@@ -60,14 +79,13 @@ export function ShiftModal({
       VENUE_ADDRESSES[(initial?.location ?? VENUE_NAMES[0]) as keyof typeof VENUE_ADDRESSES] ??
       ''
   )
-  const [totalSlots, setTotalSlots] = useState(initial?.total_slots ?? 2)
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [saving, setSaving] = useState(false)
-  const [assigningId, setAssigningId] = useState('')
-  const venueNames = [
-    ...venues.map((venue) => venue.name),
-    ...VENUE_NAMES.filter((name) => !venues.some((venue) => venue.name === name)),
-  ]
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [volunteerSearch, setVolunteerSearch] = useState('')
+  const [assignmentBusyId, setAssignmentBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const deferredVolunteerQuery = useDeferredValue(volunteerSearch)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -88,7 +106,7 @@ export function ShiftModal({
         end_time: endTime,
         location,
         address,
-        total_slots: Number(totalSlots),
+        total_slots: 1,
         notes,
       })
       onClose()
@@ -114,77 +132,43 @@ export function ShiftModal({
     }
   }
 
-  const handleAssign = async () => {
-    if (!assigningId || !onAssign) return
+  const handleAssign = async (volunteerId: string) => {
+    if (!volunteerId || !onAssign) return
+    setAssignmentBusyId(volunteerId)
+    setMessage(null)
     try {
-      await onAssign(assigningId)
-      setAssigningId('')
+      await onAssign(volunteerId)
+      setVolunteerSearch('')
+      setPickerOpen(false)
+      setMessage('Assigned volunteer to shift.')
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to assign volunteer'
-      alert(message)
-    }
-  }
-
-  const handleLocationChange = (nextLocation: string) => {
-    if (nextLocation === '__add__') {
-      void handleAddLocation()
-      return
-    }
-
-    const previousDefault =
-      venues.find((venue) => venue.name === location)?.address ??
-      VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] ??
-      null
-    const nextDefault =
-      venues.find((venue) => venue.name === nextLocation)?.address ??
-      VENUE_ADDRESSES[nextLocation as keyof typeof VENUE_ADDRESSES] ??
-      null
-    setLocation(nextLocation)
-    setAddress((current) => (!current || current === previousDefault ? nextDefault ?? current : current))
-  }
-
-  const handleAddLocation = async () => {
-    if (!onCreateVenue) return
-    const name = prompt('New location name:')
-    if (!name?.trim()) return
-    const nextAddress = prompt('Location address:')
-    if (!nextAddress?.trim()) return
-
-    try {
-      const venue = await onCreateVenue({ name: name.trim(), address: nextAddress.trim() })
-      if (!venue) return
-      setLocation(venue.name)
-      setAddress(venue.address)
-    } catch {
-      alert('Failed to create location.')
-    }
-  }
-
-  const handleEditLocation = async () => {
-    const existingVenue = venues.find((venue) => venue.name === location)
-    if (!existingVenue || !onUpdateVenue) return
-
-    const nextName = prompt('Edit location name:', existingVenue.name)
-    if (!nextName?.trim()) return
-    const nextAddress = prompt('Edit location address:', existingVenue.address)
-    if (!nextAddress?.trim()) return
-
-    try {
-      const venue = await onUpdateVenue(existingVenue.id, {
-        name: nextName.trim(),
-        address: nextAddress.trim(),
-      })
-      if (!venue) return
-      setLocation(venue.name)
-      setAddress(venue.address)
-    } catch {
-      alert('Failed to update location.')
+      setMessage(err instanceof Error ? err.message : 'Failed to assign volunteer')
+    } finally {
+      setAssignmentBusyId(null)
     }
   }
 
   const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
   const unassignedVolunteers = volunteers.filter((v) => !assignedIds.has(v.id))
+  const filteredVolunteers = useMemo(
+    () =>
+      unassignedVolunteers
+        .filter((volunteer) => {
+          if (volunteer.status !== 'confirmed') return false
+          return matchesVolunteer(volunteer, deferredVolunteerQuery)
+        })
+        .sort((left, right) => {
+          const leftAvailable = left.availability.includes(day) ? 1 : 0
+          const rightAvailable = right.availability.includes(day) ? 1 : 0
+          if (leftAvailable !== rightAvailable) return rightAvailable - leftAvailable
+
+          return left.name.localeCompare(right.name)
+        }),
+    [day, deferredVolunteerQuery, unassignedVolunteers]
+  )
+
+  const noopCreateVenue = async () => undefined as VenueRecord | undefined
+  const noopUpdateVenue = async () => undefined as VenueRecord | undefined
 
   return (
     <div
@@ -209,23 +193,21 @@ export function ShiftModal({
             </button>
           </div>
 
+          {message ? (
+            <div className="mb-4 rounded-md border border-gray-border bg-gray-50 px-3 py-2 text-sm text-charcoal">
+              {message}
+            </div>
+          ) : null}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Role</label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                list="shift-modal-role-options"
-                className="w-full px-3 py-2 border border-gray-border rounded-md"
-                placeholder="Shift role"
-                required
+              <RoleCombobox
+                currentRole={role}
+                availableRoles={availableRoles}
+                onSelectRole={setRole}
+                className="w-full px-3 py-2 border border-gray-border rounded-md flex items-center justify-between gap-3 text-left text-sm text-charcoal bg-white hover:border-teal transition"
               />
-              <datalist id="shift-modal-role-options">
-                {availableRoles.map((availableRole) => (
-                  <option key={availableRole} value={availableRole} />
-                ))}
-              </datalist>
             </div>
 
             <div>
@@ -272,53 +254,22 @@ export function ShiftModal({
 
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Location</label>
-              <select
-                value={location}
-                onChange={(e) => handleLocationChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-border rounded-md"
-                required
-              >
-                {venueNames.map((venue) => (
-                  <option key={venue} value={venue}>
-                    {venue}
-                  </option>
-                ))}
-                <option value="__add__">+ Add location…</option>
-              </select>
-              {venues.some((venue) => venue.name === location) ? (
-                <button
-                  type="button"
-                  onClick={() => void handleEditLocation()}
-                  className="mt-2 text-xs font-medium text-teal hover:underline"
-                >
-                  Edit location
-                </button>
-              ) : null}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-charcoal mb-1">Address</label>
-              <input
-                type="text"
-                value={address ?? ''}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-border rounded-md"
-                placeholder="Venue address"
+              <LocationCombobox
+                currentLocation={location}
+                address={address}
+                venues={venues}
+                onCreateVenue={onCreateVenue ?? noopCreateVenue}
+                onUpdateVenue={onUpdateVenue ?? noopUpdateVenue}
+                onSelectLocation={({ location: loc, address: addr }) => {
+                  setLocation(loc)
+                  setAddress(addr)
+                }}
+                onMessage={setMessage}
+                className="w-full px-3 py-2 border border-gray-border rounded-md flex items-center justify-between gap-3 text-left text-sm text-charcoal bg-white hover:border-teal transition"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-charcoal mb-1">
-                Total slots
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={totalSlots}
-                onChange={(e) => setTotalSlots(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-border rounded-md"
-                required
-              />
+              {address && (
+                <p className="mt-1 text-xs text-gray-text truncate">{address}</p>
+              )}
             </div>
 
             <div>
@@ -388,7 +339,15 @@ export function ShiftModal({
                       </div>
                       {onUnassign && a.volunteer && (
                         <button
-                          onClick={() => onUnassign(a.volunteer!.id)}
+                          onClick={async () => {
+                            try {
+                              setMessage(null)
+                              await onUnassign(a.volunteer!.id)
+                              setMessage(`Removed ${a.volunteer!.name} from shift.`)
+                            } catch (error) {
+                              setMessage(error instanceof Error ? error.message : 'Failed to remove volunteer')
+                            }
+                          }}
                           className="text-xs text-red-600 hover:text-red-700 ml-2 shrink-0"
                         >
                           Remove
@@ -399,29 +358,91 @@ export function ShiftModal({
                 </ul>
               )}
 
-              {onAssign && unassignedVolunteers.length > 0 && (
-                <div className="flex gap-2">
-                  <select
-                    value={assigningId}
-                    onChange={(e) => setAssigningId(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-border rounded-md text-sm"
-                  >
-                    <option value="">Select a volunteer...</option>
-                    {unassignedVolunteers.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} ({v.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAssign}
-                    disabled={!assigningId}
-                    className="px-4 py-2 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 disabled:opacity-50"
-                  >
-                    Assign
-                  </button>
-                </div>
-              )}
+              {onAssign ? (
+                filteredVolunteers.length > 0 || unassignedVolunteers.length > 0 ? (
+                  <div className="space-y-2">
+                    <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
+                      <Popover.Anchor asChild>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={volunteerSearch}
+                            onFocus={() => setPickerOpen(true)}
+                            onChange={(event) => {
+                              setVolunteerSearch(event.target.value)
+                              setPickerOpen(true)
+                            }}
+                            className={`${inputClassName} pr-20`}
+                            placeholder="Search volunteers to assign"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPickerOpen((current) => !current)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-gray-border px-2 py-1 text-[11px] font-medium text-teal"
+                          >
+                            Search
+                          </button>
+                        </div>
+                      </Popover.Anchor>
+                      <Popover.Portal>
+                        <Popover.Content
+                          sideOffset={8}
+                          align="start"
+                          onOpenAutoFocus={(event) => event.preventDefault()}
+                          className="z-50 w-[360px] rounded-xl border border-gray-border bg-white p-3 shadow-xl"
+                        >
+                          <div className="mb-2">
+                            <div className="text-xs font-medium uppercase tracking-wide text-gray-text">
+                              Volunteer Picker
+                            </div>
+                            <p className="text-sm text-gray-text">
+                              Search and assign a volunteer to this shift.
+                            </p>
+                          </div>
+                          <Command className="w-full">
+                            <Command.List className="max-h-64 overflow-y-auto rounded-lg border border-gray-border p-1">
+                              <Command.Empty className="px-3 py-4 text-sm text-gray-text">
+                                No matching volunteers for this shift.
+                              </Command.Empty>
+                              {filteredVolunteers.map((volunteer) => (
+                                <Command.Item
+                                  key={volunteer.id}
+                                  value={`${volunteer.name} ${volunteer.email} ${volunteer.phone}`}
+                                  onSelect={() => void handleAssign(volunteer.id)}
+                                  className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 truncate font-medium text-charcoal">
+                                      <span className="truncate">{volunteer.name}</span>
+                                      {volunteer.availability.includes(day) ? (
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                          Available
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                          Outside availability
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="truncate text-xs text-gray-text">
+                                      {volunteer.email} · {volunteer.phone}
+                                    </div>
+                                  </div>
+                                </Command.Item>
+                              ))}
+                            </Command.List>
+                          </Command>
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
+                    {assignmentBusyId ? (
+                      <p className="text-xs text-gray-text">Assigning volunteer…</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-text italic">All confirmed volunteers are already assigned.</p>
+                )
+              ) : null}
             </div>
           )}
         </div>

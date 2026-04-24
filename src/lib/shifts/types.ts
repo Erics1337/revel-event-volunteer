@@ -75,17 +75,21 @@ export const DEFAULT_SHIFT_ROLE_SUGGESTIONS = [
 
 export const DEFAULT_SHIFT_ROLE = DEFAULT_SHIFT_ROLE_SUGGESTIONS[1]
 
+export function getPreferredShiftRole(roles: string[] = []): string {
+  return roles.includes(DEFAULT_SHIFT_ROLE) ? DEFAULT_SHIFT_ROLE : roles[0] ?? DEFAULT_SHIFT_ROLE
+}
+
 export function getShiftRoles(
   shifts: Array<Pick<VolunteerShift, 'role'>> = [],
   extraRoles: string[] = []
 ): string[] {
-  const roles = [...shifts.map((shift) => shift.role), ...extraRoles]
+  const roles = [
+    ...DEFAULT_SHIFT_ROLE_SUGGESTIONS,
+    ...shifts.map((shift) => shift.role),
+    ...extraRoles,
+  ]
     .map((role) => role.trim())
     .filter(Boolean)
-
-  if (roles.length === 0) {
-    return [...DEFAULT_SHIFT_ROLE_SUGGESTIONS]
-  }
 
   return [...new Set(roles)].sort((left, right) => left.localeCompare(right))
 }

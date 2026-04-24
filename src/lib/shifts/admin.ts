@@ -162,7 +162,6 @@ export function sanitizeShiftInput(
   const start = normalizeTime(normalizeText(input.start_time))
   const end = normalizeTime(normalizeText(input.end_time))
   const location = normalizeText(input.location)
-  const totalSlots = Number(input.total_slots)
   const address = normalizeOptionalText(input.address) ?? (location in VENUE_ADDRESSES ? VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] : null)
   const notes = normalizeOptionalText(input.notes)
 
@@ -186,10 +185,6 @@ export function sanitizeShiftInput(
     return { error: `${label}: location is required` }
   }
 
-  if (!Number.isInteger(totalSlots) || totalSlots < 1) {
-    return { error: `${label}: total slots must be a whole number greater than 0` }
-  }
-
   return {
     value: {
       id: input.id,
@@ -199,7 +194,7 @@ export function sanitizeShiftInput(
       end_time: end,
       location,
       address,
-      total_slots: totalSlots,
+      total_slots: 1,
       notes,
     },
   }
