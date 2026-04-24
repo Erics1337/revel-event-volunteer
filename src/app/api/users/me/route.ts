@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const supabase = await createClient()
 
   try {
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ user: profile })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -97,7 +97,7 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ user: profile })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

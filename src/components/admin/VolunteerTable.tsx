@@ -48,7 +48,7 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
     }
   }
 
-  const updateDraft = (userId: string, updater: (current: any) => any) => {
+  const updateDraft = (userId: string, updater: (current: { role: string; badges: string[]; blocked: boolean }) => { role: string; badges: string[]; blocked: boolean }) => {
     setDrafts((current) => ({
       ...current,
       [userId]: updater(current[userId]),

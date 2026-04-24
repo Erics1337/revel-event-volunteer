@@ -392,6 +392,8 @@ export default function AdminVolunteersPage() {
     if (messageModal.kind === 'volunteer') {
       return [messageModal.volunteerId]
     }
+
+    return []
   }, [confirmedVolunteers, messageModal])
 
   const getVolunteerIdsForDay = useCallback(
@@ -736,7 +738,8 @@ export default function AdminVolunteersPage() {
           </div>
         )}
 
-        <div className="card mb-6 flex flex-col gap-4">
+        <div className="card mb-6 flex flex-col gap-5">
+          {/* Top row: overall fill rate + volunteer counts */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex-1">
               <p className="text-sm text-gray-text mb-1">Overall shift fill rate</p>
@@ -754,7 +757,7 @@ export default function AdminVolunteersPage() {
                 </p>
                 <div className="flex-1 bg-gray-border rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full ${
+                    className={`h-2 rounded-full transition-all ${
                       fillRate >= 80 ? 'bg-success' : fillRate >= 60 ? 'bg-orange' : 'bg-error'
                     }`}
                     style={{ width: `${fillRate}%` }}
@@ -762,7 +765,7 @@ export default function AdminVolunteersPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-6 text-sm">
+            <div className="flex gap-6 text-sm shrink-0">
               <div className="text-center">
                 <p className="text-2xl font-bold font-accent text-charcoal">{volunteers.length}</p>
                 <p className="text-gray-text">Volunteers</p>
@@ -782,30 +785,66 @@ export default function AdminVolunteersPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-border pt-3 flex gap-2 flex-wrap">
-            {EVENT_DAYS.map((day) => {
-              const dayShifts = shifts.filter((shift) => shift.day === day.date)
-              const dayOpen = dayShifts.reduce(
-                (acc, shift) => acc + Math.max(0, shift.total_slots - shift.filled_slots),
-                0
-              )
+          {/* Per-day coverage breakdown */}
+          <div className="border-t border-gray-border pt-4">
+            <p className="text-xs font-medium text-gray-text uppercase tracking-wide mb-3">
+              Open slots by day
+            </p>
+            <div className="grid grid-cols-5 gap-2">
+              {EVENT_DAYS.map((day) => {
+                const dayShifts = shifts.filter((shift) => shift.day === day.date)
+                const dayTotal = dayShifts.reduce((acc, shift) => acc + shift.total_slots, 0)
+                const dayFilled = dayShifts.reduce((acc, shift) => acc + shift.filled_slots, 0)
+                const dayOpen = Math.max(0, dayTotal - dayFilled)
+                const dayPct = dayTotal > 0 ? Math.round((dayFilled / dayTotal) * 100) : 0
+                const isCovered = dayOpen === 0
 
-              return (
-                <button
-                  key={day.date}
-                  onClick={() => openReminderModal(day.date)}
-                  className={`text-xs px-3 py-1.5 rounded-pill border font-medium transition-colors flex items-center gap-1.5 ${
-                    dayOpen > 0
-                      ? 'border-orange text-orange bg-orange-light hover:bg-orange hover:text-white'
-                      : 'border-gray-border text-gray-mid cursor-default'
-                  }`}
-                  disabled={dayOpen === 0}
-                >
-                  {day.label}
-                  {dayOpen > 0 ? <span className="font-bold">{dayOpen} open</span> : <span>covered</span>}
-                </button>
-              )
-            })}
+                const [dayName, dateStr] = day.label.split(', ')
+
+                return (
+                  <div
+                    key={day.date}
+                    className={`rounded-lg p-3 border flex flex-col gap-2 ${
+                      isCovered
+                        ? 'border-success/25 bg-success/5'
+                        : dayPct >= 60
+                          ? 'border-orange/30 bg-orange-light'
+                          : 'border-error/25 bg-red-50'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-charcoal">{dayName}</p>
+                      <p className="text-xs text-gray-mid">{dateStr}</p>
+                    </div>
+
+                    <div className="flex items-end gap-1">
+                      <span
+                        className={`text-2xl font-bold font-accent leading-none ${
+                          isCovered ? 'text-success' : dayPct >= 60 ? 'text-orange' : 'text-error'
+                        }`}
+                      >
+                        {isCovered ? '✓' : dayOpen}
+                      </span>
+                      <span className="text-xs text-gray-text pb-0.5">
+                        {isCovered ? 'covered' : 'open'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="bg-white/60 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-1.5 rounded-full transition-all ${
+                            isCovered ? 'bg-success' : dayPct >= 60 ? 'bg-orange' : 'bg-error'
+                          }`}
+                          style={{ width: `${dayPct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-mid mt-1">{dayPct}% filled</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
@@ -947,7 +986,7 @@ export default function AdminVolunteersPage() {
             <div className="relative mb-4">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-mid" />
               <input
-                className="input pl-10"
+                className="input input-icon"
                 placeholder="Search by name, email, or phone..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}

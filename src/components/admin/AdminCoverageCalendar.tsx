@@ -15,12 +15,6 @@ interface AdminCoverageCalendarProps {
   onSelectShift: (shiftId: string) => void
 }
 
-interface CalendarRef {
-  getApi: () => {
-    gotoDate: (date: string) => void
-  }
-}
-
 function combineDayTime(day: string, time: string): string {
   const normalizedTime = time.length === 5 ? `${time}:00` : time
   return `${day}T${normalizedTime}`
@@ -57,7 +51,7 @@ export function AdminCoverageCalendar({
   onActiveDayChange,
   onSelectShift,
 }: AdminCoverageCalendarProps) {
-  const calendarRef = useRef<CalendarRef | null>(null)
+  const calendarRef = useRef<FullCalendar | null>(null)
 
   const events = useMemo<EventInput[]>(
     () =>

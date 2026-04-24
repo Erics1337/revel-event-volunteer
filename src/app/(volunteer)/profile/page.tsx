@@ -149,7 +149,7 @@ export default function ProfilePage() {
                 <p className="text-gray-text">{profile.email}</p>
                 <div className="flex gap-2 items-center mt-2">
                   <span className="capitalize badge-default">{profile.role}</span>
-                  {profile.badges?.map((badge) => (
+                  {profile.badges?.map((badge: string) => (
                     <span key={badge} className="capitalize badge-featured">
                       {badge}
                     </span>

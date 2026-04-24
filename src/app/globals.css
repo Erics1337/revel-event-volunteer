@@ -164,6 +164,10 @@ a {
   background-color: white;
 }
 
+.input-icon {
+  padding-left: 2.5rem;
+}
+
 .input:focus {
   outline: none;
   border-color: var(--color-teal);

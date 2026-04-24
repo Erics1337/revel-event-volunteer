@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { EVENT_DAYS } from '@/lib/shifts/types'
 
-const VALID_DAYS = new Set(EVENT_DAYS.map((day) => day.date))
+const VALID_DAYS: Set<string> = new Set(EVENT_DAYS.map((day) => day.date))
 
 export async function GET() {
   const supabase = await createClient()

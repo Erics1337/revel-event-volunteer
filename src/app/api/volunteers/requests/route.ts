@@ -60,9 +60,10 @@ async function recalculateAssignedShiftCount(supabase: Awaited<ReturnType<typeof
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   const { supabase, volunteer, error } = await getVolunteerForUser()
-  if (error || !volunteer) return error
+  if (error) return error ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!volunteer) return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 })
 
   let body: unknown
   try {
@@ -231,7 +232,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const { supabase, volunteer, error } = await getVolunteerForUser()
-  if (error || !volunteer) return error
+  if (error) return error
+  if (!volunteer) return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 })
 
   const { searchParams } = new URL(request.url)
   const shiftId = searchParams.get('shiftId')

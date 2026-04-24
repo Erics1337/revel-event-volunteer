@@ -212,7 +212,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
       body: template.html,
       shift_id: shiftId,
       scheduled_for: getImmediateSchedule(),
-    })
+    } as any)
     .select()
     .single()
 
@@ -395,7 +395,7 @@ export async function runReminderDispatch(options?: {
           body: template.html,
           shift_id: assignment.shift.id,
           scheduled_for: getImmediateSchedule(),
-        })
+        } as any)
         .select()
         .single()
 
@@ -501,7 +501,7 @@ export async function sendBulkMessage(
         subject: template.subject,
         body: template.html,
         scheduled_for: scheduledFor,
-      })
+      } as any)
       .select()
       .single()
 
@@ -607,7 +607,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
         body: template.html,
         shift_id: shift.id,
         scheduled_for: getImmediateSchedule(),
-      })
+      } as any)
       .select()
       .single()
 

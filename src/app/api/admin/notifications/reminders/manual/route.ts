@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const shiftIds = Array.isArray(body.shiftIds)
-      ? body.shiftIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
+      ? body.shiftIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
       : []
 
     if (shiftIds.length === 0) {

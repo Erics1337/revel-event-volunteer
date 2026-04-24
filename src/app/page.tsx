@@ -202,22 +202,28 @@ export default function Home() {
               </div>
 
               <div className="relative flex min-h-[35rem] items-end justify-center lg:min-h-[44rem]">
-                <div className="absolute left-[6%] top-[9%] hidden w-36 rounded-[26px] border border-white/60 bg-white/92 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.14)] xl:block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">
-                    About the vibe
-                  </p>
-                  <p className="mt-3 text-base font-semibold text-charcoal">
-                    The first. The real. The Boulder way.
-                  </p>
+                {/* SMS bubble — top left, outside the image area */}
+                <div className="absolute -left-2 top-[7%] z-20 hidden xl:block">
+                  <div className="relative max-w-[10rem] rounded-[18px] rounded-tl-[4px] bg-white/90 px-3.5 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur">
+                    {/* tail */}
+                    <span className="absolute -left-[7px] top-3 block h-0 w-0 border-b-[7px] border-b-transparent border-r-[8px] border-r-white/90 border-t-[7px] border-t-transparent" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-teal">About the vibe</p>
+                    <p className="mt-1.5 text-[13px] font-semibold leading-5 text-charcoal">
+                      The first. The real. The Boulder way.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="absolute bottom-[8%] right-[4%] hidden max-w-[15rem] rounded-[26px] border border-black/8 bg-[#fff4e6] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.14)] lg:block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange">
-                    Volunteer line
-                  </p>
-                  <p className="mt-3 text-base font-semibold text-charcoal">
-                    Show up, help people, keep the week humming.
-                  </p>
+                {/* SMS bubble — bottom right, outside the image area */}
+                <div className="absolute -right-2 bottom-[12%] z-20 hidden lg:block">
+                  <div className="relative max-w-[11rem] rounded-[18px] rounded-br-[4px] bg-[#fff4e6]/95 px-3.5 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur">
+                    {/* tail */}
+                    <span className="absolute -right-[7px] bottom-3 block h-0 w-0 border-b-[7px] border-b-transparent border-l-[8px] border-l-[#fff4e6] border-t-[7px] border-t-transparent" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange">Volunteer line</p>
+                    <p className="mt-1.5 text-[13px] font-semibold leading-5 text-charcoal">
+                      Show up, help people, keep the week humming.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="absolute inset-x-12 bottom-4 h-24 rounded-full bg-black/20 blur-3xl" />
