@@ -58,6 +58,7 @@ export interface VenueRecord {
 }
 
 export const EVENT_DAYS = [
+  { date: '2026-05-01', label: 'Fri, May 1' },
   { date: '2026-05-04', label: 'Mon, May 4' },
   { date: '2026-05-05', label: 'Tue, May 5' },
   { date: '2026-05-06', label: 'Wed, May 6' },
