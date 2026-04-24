@@ -14,7 +14,7 @@
     "db:migrate:new": "supabase migration new",
     "db:migrate:up": "supabase migration up && npm run db:types:local",
     "db:push": "supabase db push --linked && npm run db:types:local",
-    "db:reset:prod": "npm run config:push && supabase db reset --linked && npm run db:types:remote",
+    "db:reset:prod": "npm run config:push && supabase db reset --linked && npm run db:types:local",
     "config:push": "set -a && source .env.production && set +a && supabase config push"
   },
   "dependencies": {

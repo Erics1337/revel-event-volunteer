@@ -82,7 +82,7 @@ npm run db:reset
 ```
 
 4. Push the migration to the linked production project (also regenerates types
-   from the production schema):
+   from the **local** schema — your migration files are the source of truth):
 
 ```bash
 npm run db:push
@@ -98,9 +98,9 @@ This repo is already linked to the production Supabase project `stmeubgvlednhhca
 | `npm run db:reset` | `supabase db reset` + `db:types` (fresh schema + fresh types) |
 | `npm run db:migrate:new -- <name>` | Scaffold a new migration file |
 | `npm run db:migrate:up` | Apply pending migrations locally + `db:types` |
-| `npm run db:push` | Push migrations to the linked production DB + `db:types` |
+| `npm run db:push` | Push migrations to the linked production DB + `db:types` (from **local**) |
 | `npm run config:push` | Push configuration in `supabase/config.toml` (using `.env.production`) to the linked production project |
-| `npm run db:reset:prod` | ⚠️ **DANGER:** Wipe and reset linked production DB + `config:push` + `db:types` |
+| `npm run db:reset:prod` | ⚠️ **DANGER:** Wipe and reset linked production DB + `config:push` + `db:types` (from **local**) |
 
 **Always** use the `db:*` npm scripts instead of calling `supabase` directly so
 that `database.types.ts` stays in sync with the schema.
