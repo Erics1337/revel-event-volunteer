@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { isAdmin } from '@/lib/auth/roles'
 import bswHeroImage from '../../public/bsw-img-1.png'
@@ -60,6 +61,7 @@ const AUTH_NAV_LINKS = [
 
 export default function Home() {
   const { user, profile, loading, signOut } = useAuth()
+  const [signingOut, setSigningOut] = useState(false)
   const primaryCta = user
     ? { href: '/open-shifts', label: 'Browse Open Shifts' }
     : { href: '/auth/login', label: 'Get Started' }
@@ -68,8 +70,14 @@ export default function Home() {
     : { href: '/open-shifts', label: 'See Open Shifts' }
 
   const handleSignOut = async () => {
-    await signOut()
-    window.location.href = '/auth/login'
+    if (signingOut) return
+
+    setSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      window.location.href = '/auth/login'
+    }
   }
 
   if (loading) {
@@ -126,9 +134,10 @@ export default function Home() {
                         )}
                         <button
                           onClick={handleSignOut}
-                          className="cursor-pointer text-left transition hover:text-teal"
+                          disabled={signingOut}
+                          className="cursor-pointer text-left transition hover:text-teal disabled:cursor-wait disabled:opacity-70"
                         >
-                          Sign Out
+                          {signingOut ? 'Signing out...' : 'Sign Out'}
                         </button>
                       </>
                     )}
@@ -418,8 +427,12 @@ export default function Home() {
               My schedule
             </Link>
             {user ? (
-              <button onClick={handleSignOut} className="cursor-pointer text-left transition hover:text-teal">
-                Sign Out
+              <button
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="cursor-pointer text-left transition hover:text-teal disabled:cursor-wait disabled:opacity-70"
+              >
+                {signingOut ? 'Signing out...' : 'Sign Out'}
               </button>
             ) : (
               <Link href="/auth/login" className="transition hover:text-teal">

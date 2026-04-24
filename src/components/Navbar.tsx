@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { isAdmin } from '@/lib/auth/roles'
 import Image from 'next/image'
@@ -28,11 +29,18 @@ interface NavbarProps {
 export function Navbar({ variant = 'default', adminNavItems, showLogoImage = false }: NavbarProps) {
   const pathname = usePathname()
   const { user, profile, loading, signOut } = useAuth()
+  const [signingOut, setSigningOut] = useState(false)
   const signInHref = `/auth/login?redirectTo=${encodeURIComponent(pathname)}`
 
   const handleSignOut = async () => {
-    await signOut()
-    window.location.href = '/'
+    if (signingOut) return
+
+    setSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      window.location.href = '/'
+    }
   }
 
   const isAdminUser = !loading && isAdmin(profile?.role)
@@ -94,9 +102,10 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
+                  disabled={signingOut}
+                  className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
                 >
-                  Sign Out
+                  {signingOut ? 'Signing out...' : 'Sign Out'}
                 </button>
               ) : (
                 <Link
@@ -166,9 +175,10 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
+                disabled={signingOut}
+                className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
               >
-                Sign Out
+                {signingOut ? 'Signing out...' : 'Sign Out'}
               </button>
             ) : (
               <Link

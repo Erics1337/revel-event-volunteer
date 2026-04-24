@@ -60,6 +60,7 @@ function RequiredProfileModalBody({
   const [availability, setAvailability] = useState<string[]>([])
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [completed, setCompleted] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.sessionStorage.getItem(completionStorageKey) === '1'
@@ -130,6 +131,17 @@ function RequiredProfileModalBody({
     window.sessionStorage.removeItem(completionStorageKey)
     setCompleted(false)
     router.push('/open-shifts')
+  }
+
+  const handleSignOut = async () => {
+    if (signingOut) return
+
+    setSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      router.replace('/auth/login')
+    }
   }
 
   if (!availabilityLoaded) return null
@@ -303,10 +315,11 @@ function RequiredProfileModalBody({
         <div className="mt-5 text-center">
           <button
             type="button"
-            onClick={() => signOut()}
-            className="text-sm text-gray-text hover:text-teal hover:underline"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="text-sm text-gray-text hover:text-teal hover:underline disabled:cursor-wait disabled:opacity-70"
           >
-            Sign out instead
+            {signingOut ? 'Signing out...' : 'Sign out instead'}
           </button>
         </div>
       </div>

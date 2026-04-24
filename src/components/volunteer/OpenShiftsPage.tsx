@@ -41,6 +41,7 @@ interface VolunteerAssignment {
 interface VolunteerRecord {
   id: string
   user_id: string | null
+  phone: string | null
   availability: string[]
   status: string
   shift_count: number
@@ -186,7 +187,7 @@ export function OpenShiftsPage() {
   )
 
   const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
-  const hasVolunteerSetup = Boolean(availability.length > 0)
+  const hasVolunteerSetup = Boolean(volunteer?.phone?.trim() && availability.length > 0)
   const showSetupPanel = Boolean(user)
   const hasAvailabilityOverlap = shifts.some((shift) => availability.includes(shift.day))
   const showAvailabilityOnly =
@@ -340,7 +341,12 @@ export function OpenShiftsPage() {
     }
 
     if (!hasVolunteerSetup) {
-      setErrorMessage('Complete your volunteer setup before signing up for a shift.')
+      setRequestFeedback({
+        tone: 'error',
+        title: 'Complete your volunteer setup',
+        description:
+          'Add your phone number and at least one available day before signing up for a shift.',
+      })
       return
     }
 
@@ -363,6 +369,17 @@ export function OpenShiftsPage() {
       const payload = (await response.json().catch(() => ({}))) as ShiftRequestResponse
 
       if (!response.ok) {
+        if (payload.code === 'VOLUNTEER_SETUP_REQUIRED') {
+          setRequestFeedback({
+            tone: 'error',
+            title: 'Complete your volunteer setup',
+            description:
+              payload.error ||
+              'Add your phone number and at least one available day before signing up for a shift.',
+          })
+          return
+        }
+
         if (payload.code === 'SHIFT_CONFLICT' && payload.conflictingShift) {
           const conflictingShift = payload.conflictingShift
           const conflictStatus =
