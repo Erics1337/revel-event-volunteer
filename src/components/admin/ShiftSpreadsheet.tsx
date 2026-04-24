@@ -5,7 +5,6 @@ import {
   useCallback,
   useDeferredValue,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import * as Popover from '@radix-ui/react-popover'
@@ -41,7 +40,6 @@ interface ShiftSpreadsheetProps {
   volunteers: AvailableVolunteer[]
   venues: VenueRecord[]
   onSave: (shifts: ShiftEditorInput[], deletedShiftIds: string[]) => Promise<void>
-  onImportFile: (file: File) => Promise<number | undefined>
   onCreateVenue: (values: { name: string; address: string }) => Promise<VenueRecord | undefined>
   onUpdateVenue: (
     id: string,
@@ -816,7 +814,6 @@ export function ShiftSpreadsheet({
   volunteers,
   venues,
   onSave,
-  onImportFile,
   onCreateVenue,
   onUpdateVenue,
   onAssignVolunteer,
@@ -825,9 +822,7 @@ export function ShiftSpreadsheet({
   const [rows, setRows] = useState<SpreadsheetRow[]>(() => sortShifts(shifts.map(toEditableShift)))
   const [deletedShiftIds, setDeletedShiftIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const baselineRows = useMemo(() => sortShifts(shifts.map(toEditableShift)), [shifts])
   const assignmentsByShiftId = useMemo(() => {
@@ -962,40 +957,6 @@ export function ShiftSpreadsheet({
     XLSX.writeFile(workbook, 'BSW_2026_Volunteer_Shifts.xlsx')
   }, [rows])
 
-  const handleImportClick = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
-
-  const handleImportFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      event.target.value = ''
-      if (!file) return
-
-      const proceed = confirm(
-        'Importing a file replaces the entire shift schedule and will remove any volunteer sign-ups that already exist for the current shifts. Continue?'
-      )
-      if (!proceed) return
-
-      setImporting(true)
-      setMessage(null)
-
-      try {
-        const importedCount = await onImportFile(file)
-        setMessage(
-          importedCount != null
-            ? `Imported ${importedCount} shifts from file.`
-            : 'Imported shifts from file.'
-        )
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Failed to import file')
-      } finally {
-        setImporting(false)
-      }
-    },
-    [onImportFile]
-  )
-
   return (
     <div className="space-y-4">
       <div className="card">
@@ -1008,14 +969,6 @@ export function ShiftSpreadsheet({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleImportClick}
-              disabled={importing}
-              className="rounded-md border border-gray-border px-4 py-2 text-sm font-medium hover:border-teal hover:text-teal disabled:opacity-50"
-            >
-              {importing ? 'Importing...' : 'Import CSV/XLSX'}
-            </button>
             <button
               type="button"
               onClick={handleExport}
@@ -1048,24 +1001,12 @@ export function ShiftSpreadsheet({
           </div>
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          onChange={handleImportFile}
-          className="hidden"
-        />
-
         <div className="mt-3 text-sm text-gray-text">
-          Import and export use the same BSW workbook shape as your original spreadsheet.
+          Export uses the same BSW workbook shape as your original spreadsheet.
         </div>
         <div className="mt-1 text-sm text-gray-text">
           Volunteer search now lives in the volunteer name cell, and location editing happens inside
           the location dropdown itself.
-        </div>
-        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Importing a new spreadsheet fully replaces the current shift schedule and removes any
-          volunteer sign-ups already attached to those shifts.
         </div>
 
         {message ? (

@@ -13,7 +13,6 @@ export default function AdminShiftsSpreadsheetPage() {
     loading,
     error,
     saveSpreadsheet,
-    importFile,
     createVenue,
     updateVenue,
     assignVolunteer,
@@ -45,7 +44,6 @@ export default function AdminShiftsSpreadsheetPage() {
         volunteers={volunteers}
         venues={venues}
         onSave={saveSpreadsheet}
-        onImportFile={importFile}
         onCreateVenue={createVenue}
         onUpdateVenue={updateVenue}
         onAssignVolunteer={assignVolunteer}
