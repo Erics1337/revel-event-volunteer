@@ -55,7 +55,10 @@ export function ShiftModal({
   const [endTime, setEndTime] = useState(initial?.end_time?.slice(0, 5) ?? '11:00')
   const [location, setLocation] = useState(initial?.location ?? VENUE_NAMES[0])
   const [address, setAddress] = useState(
-    initial?.address ?? VENUE_ADDRESSES[(initial?.location as keyof typeof VENUE_ADDRESSES) ?? VENUE_NAMES[0]]
+    initial?.address ??
+      venues.find((v) => v.name === initial?.location)?.address ??
+      VENUE_ADDRESSES[(initial?.location ?? VENUE_NAMES[0]) as keyof typeof VENUE_ADDRESSES] ??
+      ''
   )
   const [totalSlots, setTotalSlots] = useState(initial?.total_slots ?? 2)
   const [notes, setNotes] = useState(initial?.notes ?? '')
@@ -129,7 +132,10 @@ export function ShiftModal({
       return
     }
 
-    const previousDefault = VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] ?? null
+    const previousDefault =
+      venues.find((venue) => venue.name === location)?.address ??
+      VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] ??
+      null
     const nextDefault =
       venues.find((venue) => venue.name === nextLocation)?.address ??
       VENUE_ADDRESSES[nextLocation as keyof typeof VENUE_ADDRESSES] ??
