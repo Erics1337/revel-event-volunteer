@@ -9,7 +9,7 @@ function padCalendarNumber(value: number) {
 
 function formatCalendarDate(day: string, time: string) {
   const [hours, minutes] = time.split(':').map(Number)
-  return `${day.replaceAll('-', '')}T${padCalendarNumber(hours)}${padCalendarNumber(minutes)}00`
+  return `${day.replace(/-/g, '')}T${padCalendarNumber(hours)}${padCalendarNumber(minutes)}00`
 }
 
 function formatUtcTimestamp(date: Date) {
@@ -18,11 +18,11 @@ function formatUtcTimestamp(date: Date) {
 
 function escapeCalendarText(value: string) {
   return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('\r\n', '\n')
-    .replaceAll('\n', '\\n')
-    .replaceAll(';', '\\;')
-    .replaceAll(',', '\\,')
+    .replace(/\\/g, '\\\\')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n/g, '\\n')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
 }
 
 function buildCalendarFile(

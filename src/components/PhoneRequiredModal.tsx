@@ -227,7 +227,7 @@ function RequiredProfileModalBody({
             <button
               type="button"
               onClick={handleBrowseOpenShifts}
-              className="block w-full rounded-md bg-teal-500 py-3 px-4 text-center font-medium text-white transition-colors hover:bg-teal-600"
+              className="cursor-pointer block w-full rounded-md bg-teal-500 py-3 px-4 text-center font-medium text-white transition-colors hover:bg-teal-600"
             >
               Browse open shifts
             </button>
@@ -307,7 +307,7 @@ function RequiredProfileModalBody({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-teal-500 text-white py-3 px-4 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="cursor-pointer w-full bg-teal-500 text-white py-3 px-4 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Saving...' : 'Save and continue'}
           </button>
@@ -319,7 +319,7 @@ function RequiredProfileModalBody({
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="text-sm text-gray-text hover:text-teal hover:underline disabled:cursor-wait disabled:opacity-70"
+            className="cursor-pointer text-sm text-gray-text hover:text-teal hover:underline disabled:cursor-wait disabled:opacity-70"
           >
             {signingOut ? 'Signing out...' : 'Sign out instead'}
           </button>

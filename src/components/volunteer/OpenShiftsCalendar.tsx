@@ -135,7 +135,7 @@ export function OpenShiftsCalendar({
             Calendar View
           </h2>
           <p className="mt-1 text-sm text-[#6f7883]">
-            Scan open shifts by day, then click any block to preview and request it.
+            Browse by day and click any shift to preview and request it.
           </p>
         </div>
 
@@ -160,9 +160,8 @@ export function OpenShiftsCalendar({
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs font-medium text-[#5f6772]">
-        <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-[#31585c]">Open</span>
-        <span className="rounded-full bg-[#6aa9ae] px-3 py-1 text-white">Assigned</span>
-        <span className="rounded-full bg-[#b9c1ca] px-3 py-1 text-white">Full</span>
+        <span className="rounded-full bg-[#6aa9ae] px-3 py-1 text-white">Your assigned shifts</span>
+        <span className="rounded-full bg-[#b9c1ca] px-3 py-1 text-white">Full shifts</span>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#e7ebef]">
@@ -197,9 +196,9 @@ export function OpenShiftsCalendar({
               <div className="px-2 py-1 text-xs leading-tight">
                 <div className="truncate font-semibold">{arg.event.title}</div>
                 <div className="truncate opacity-90">{location}</div>
-                <div className="opacity-90">
-                  {state === 'full' ? 'Full' : 'Open'}
-                </div>
+                {state === 'full' && (
+                  <div className="opacity-90">Full</div>
+                )}
               </div>
             )
           }}

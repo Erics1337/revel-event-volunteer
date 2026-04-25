@@ -11,7 +11,6 @@ import bswLogo from '../../public/bsw-logo-BUCTZ2oQ.png'
 const MAIN_NAV_LINKS = [
   { href: '/open-shifts', label: 'Open Shifts' },
   { href: '/schedule', label: 'My Schedule' },
-  { href: '/profile', label: 'Profile' },
 ] as const
 
 function isActiveLink(pathname: string, href: string) {
@@ -99,18 +98,30 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
 
             {!loading &&
               (user ? (
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  disabled={signingOut}
-                  className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
-                >
-                  {signingOut ? 'Signing out...' : 'Sign Out'}
-                </button>
+                <>
+                  <Link
+                    href="/profile"
+                    className={`rounded-sm px-3 py-1.5 text-sm font-medium transition ${
+                      pathname === '/profile'
+                        ? 'bg-[#eef8f8] text-[#6aa9ae]'
+                        : 'text-[#6f7883] hover:bg-[#f0f2ef] hover:text-[#5aaeb3]'
+                    }`}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {signingOut ? 'Signing out...' : 'Sign Out'}
+                  </button>
+                </>
               ) : (
                 <Link
                   href={signInHref}
-                  className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
+                  className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
                 >
                   Sign In
                 </Link>
@@ -172,18 +183,30 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
 
           {!loading &&
             (user ? (
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
-              >
-                {signingOut ? 'Signing out...' : 'Sign Out'}
-              </button>
+              <>
+                <Link
+                  href="/profile"
+                  className={`rounded-sm px-3 py-1.5 text-sm font-medium transition ${
+                    pathname === '/profile'
+                      ? 'bg-[#eef8f8] text-[#6aa9ae]'
+                      : 'text-[#6f7883] hover:bg-[#f0f2ef] hover:text-[#5aaeb3]'
+                  }`}
+                >
+                  Profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)] disabled:cursor-wait disabled:opacity-70"
+                >
+                  {signingOut ? 'Signing out...' : 'Sign Out'}
+                </button>
+              </>
             ) : (
               <Link
                 href={signInHref}
-                className="rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
+                className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
               >
                 Sign In
               </Link>

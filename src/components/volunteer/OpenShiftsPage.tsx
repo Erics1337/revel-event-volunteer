@@ -243,6 +243,14 @@ export function OpenShiftsPage() {
     [nonUrgentShifts]
   )
   const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
+
+  // Overall coverage percentage
+  const coveragePct = useMemo(() => {
+    const totalSlots = shifts.reduce((sum, s) => sum + s.total_slots, 0)
+    const filledSlots = shifts.reduce((sum, s) => sum + s.filled_slots, 0)
+    return totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0
+  }, [shifts])
+
   const selectedCalendarShift = useMemo(() => {
     if (!selectedCalendarShiftId) return null
     return filtered.find((shift) => shift.id === selectedCalendarShiftId) ?? null
@@ -462,7 +470,7 @@ export function OpenShiftsPage() {
             Volunteer at Boulder Startup Week 2026
           </h1>
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
-            {openCount} shifts still need coverage. Find a role that fits your day and keep your volunteer plan in one place.
+            We&apos;re at {coveragePct}% coverage — {openCount} shifts still need someone. Everything you see here is up for grabs.
           </p>
         </div>
       </section>
@@ -1146,14 +1154,14 @@ function ShiftCard({
   const isRequested = relationshipStatus === 'requested'
   const isAssigned = relationshipStatus === 'assigned'
   const canRequest = !full && !isRequested && !isAssigned
-  const statusLabel = isAssigned ? 'Assigned' : isRequested ? 'Requested' : full ? 'Full' : 'Open'
+  // Only show status badge for non-available states (don't show "Open" on the Open Shifts page)
+  const showStatus = isAssigned || isRequested || full
+  const statusLabel = isAssigned ? 'Assigned' : isRequested ? 'Requested' : full ? 'Full' : ''
   const statusClassName = isAssigned
     ? 'bg-[#6aa9ae] text-white'
     : isRequested
       ? 'bg-[#fff1dc] text-[#ef8f3d]'
-      : full
-        ? 'bg-[#eef0f2] text-[#7f8691]'
-        : 'bg-[#eaf7ef] text-[#43805a]'
+      : 'bg-[#eef0f2] text-[#7f8691]'
 
   return (
     <article
@@ -1177,9 +1185,11 @@ function ShiftCard({
               {formatTimeLabel(shift.end_time)}
             </div>
           </div>
-          <span className={`mt-2 hidden rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:inline-flex ${statusClassName}`}>
-            {statusLabel}
-          </span>
+          {showStatus && (
+            <span className={`mt-2 hidden rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:inline-flex ${statusClassName}`}>
+              {statusLabel}
+            </span>
+          )}
         </div>
 
         <div className="min-w-0">
@@ -1205,9 +1215,11 @@ function ShiftCard({
                 Urgent
               </span>
             ) : null}
-            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:hidden ${statusClassName}`}>
-              {statusLabel}
-            </span>
+            {showStatus && (
+              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:hidden ${statusClassName}`}>
+                {statusLabel}
+              </span>
+            )}
           </div>
 
           <a
@@ -1258,7 +1270,7 @@ function ShiftCard({
               disabled={submitting || !canRequest}
               className={`whitespace-nowrap rounded-sm border-2 px-3.5 py-1.5 text-sm font-semibold transition ${
                 canRequest
-                  ? 'border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
+                  ? 'cursor-pointer border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
                   : 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
               }`}
             >
