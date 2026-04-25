@@ -88,6 +88,7 @@ export type Database = {
           created_at: string | null
           error_message: string | null
           id: string
+          recipient_email: string | null
           scheduled_for: string
           sent_at: string | null
           shift_id: string | null
@@ -101,6 +102,7 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          recipient_email?: string | null
           scheduled_for: string
           sent_at?: string | null
           shift_id?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          recipient_email?: string | null
           scheduled_for?: string
           sent_at?: string | null
           shift_id?: string | null
@@ -353,6 +356,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      configure_reminder_cron: {
+        Args: {
+          app_base_url_secret_name?: string
+          cron_schedule?: string
+          cron_secret_name?: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
@@ -504,3 +515,4 @@ export const Constants = {
     },
   },
 } as const
+

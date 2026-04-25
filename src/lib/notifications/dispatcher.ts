@@ -31,6 +31,7 @@ interface Volunteer {
 interface Notification {
   id: string
   user_id: string | null
+  recipient_email: string | null
   type: string
   subject: string
   body: string
@@ -220,6 +221,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
   const { data: notification } = await notificationsTable(supabase)
     .insert({
       user_id: volunteer.user_id,
+      recipient_email: email,
       type: 'volunteer_confirmation',
       subject: template.subject,
       body: template.html,
@@ -252,6 +254,7 @@ export async function sendPendingNotifications(supabaseOverride?: SupabaseClient
       .select(`
         id,
         user_id,
+        recipient_email,
         subject,
         body,
         scheduled_for,
@@ -271,8 +274,20 @@ export async function sendPendingNotifications(supabaseOverride?: SupabaseClient
     }
 
     for (const notification of pending as any[]) {
-      const email = notification.user?.email
-      if (!email) continue
+      const email = notification.recipient_email || notification.user?.email
+      if (!email) {
+        const error = 'Notification is missing a recipient email address'
+        await notificationsTable(supabase)
+          .update({
+            status: 'failed',
+            sent_at: null,
+            error_message: error,
+          })
+          .eq('id', notification.id)
+
+        results.push({ id: notification.id, success: false, error })
+        continue
+      }
 
       const result = await sendEmail({
         to: email,
@@ -402,6 +417,7 @@ export async function runReminderDispatch(options?: {
       const { data: notification, error: insertError } = await notificationsTable(supabase)
         .insert({
           user_id: volunteer.user_id,
+          recipient_email: volunteer.email,
           type: rule.type,
           subject: template.subject,
           body: template.html,
@@ -510,6 +526,7 @@ export async function sendBulkMessage(
     const { data: notification } = await notificationsTable(supabase)
       .insert({
         user_id: volunteer.user_id,
+        recipient_email: email,
         type: 'admin_message',
         subject: template.subject,
         body: template.html,
@@ -614,6 +631,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
     const { data: notification } = await notificationsTable(supabase)
       .insert({
         user_id: volunteer.user_id,
+        recipient_email: volunteer.email,
         type: 'reminder_24h',
         subject: template.subject,
         body: template.html,

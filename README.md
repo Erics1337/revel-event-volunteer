@@ -105,6 +105,37 @@ This repo is already linked to the production Supabase project `stmeubgvlednhhca
 **Always** use the `db:*` npm scripts instead of calling `supabase` directly so
 that `database.types.ts` stays in sync with the schema.
 
+#### Volunteer reminder cron
+
+Reminder emails are dispatched by Supabase Cron calling the app endpoint
+`/api/cron/reminders` every 10 minutes. The endpoint still verifies the
+`Authorization: Bearer <CRON_SECRET>` header before sending anything.
+
+Store the production app URL and the same `CRON_SECRET` value from Vercel in
+Supabase Vault, then install the schedule. If the Vault secrets already exist
+when the migration runs, the migration installs the schedule automatically.
+
+```sql
+SELECT vault.create_secret('https://your-production-domain.example', 'reminder_app_base_url');
+SELECT vault.create_secret('your-cron-secret', 'reminder_cron_secret');
+
+SELECT public.configure_reminder_cron();
+```
+
+To change the cadence:
+
+```sql
+SELECT public.configure_reminder_cron(cron_schedule => '*/5 * * * *');
+```
+
+To inspect the job:
+
+```sql
+SELECT jobname, schedule, active
+FROM cron.job
+WHERE jobname = 'dispatch-volunteer-reminders';
+```
+
 #### Generating TypeScript types manually
 
 `src/lib/supabase/database.types.ts` is the source of truth for every
