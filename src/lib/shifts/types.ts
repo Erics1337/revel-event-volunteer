@@ -10,6 +10,7 @@ export interface VolunteerShift {
   address?: string | null
   total_slots: number
   filled_slots: number
+  urgent: boolean
   notes?: string | null
 }
 

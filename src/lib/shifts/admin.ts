@@ -16,6 +16,7 @@ export const SHIFT_EXPORT_HEADERS = [
   'Address',
   'Shift_Start',
   'Shift_End',
+  'Urgent',
   'Notes',
 ] as const
 
@@ -28,6 +29,7 @@ export interface EditableShiftInput {
   location: string
   address?: string | null
   total_slots: number
+  urgent?: boolean
   notes?: string | null
 }
 
@@ -64,6 +66,15 @@ function normalizeDayLabel(value: string): string {
 function normalizeOptionalText(value: unknown): string | null {
   const next = normalizeText(value)
   return next ? next : null
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value !== 'string') return false
+
+  const normalized = value.trim().toLowerCase()
+  return ['1', 'true', 'yes', 'y', 'urgent'].includes(normalized)
 }
 
 function normalizeTime(value: string): string | null {
@@ -163,6 +174,7 @@ export function sanitizeShiftInput(
   const end = normalizeTime(normalizeText(input.end_time))
   const location = normalizeText(input.location)
   const address = normalizeOptionalText(input.address) ?? (location in VENUE_ADDRESSES ? VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] : null)
+  const urgent = normalizeBoolean(input.urgent)
   const notes = normalizeOptionalText(input.notes)
 
   if (!role) {
@@ -195,6 +207,7 @@ export function sanitizeShiftInput(
       location,
       address,
       total_slots: 1,
+      urgent,
       notes,
     },
   }
@@ -209,6 +222,7 @@ export function toShiftInsert(shift: EditableShiftInput): ShiftInsert {
     location: shift.location,
     address: shift.address ?? null,
     total_slots: shift.total_slots,
+    urgent: Boolean(shift.urgent),
     notes: shift.notes ?? null,
   }
 }
@@ -273,6 +287,7 @@ export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[];
     const address = getCell(row, 'address')
     const start = getCell(row, 'shift_start')
     const end = getCell(row, 'shift_end')
+    const urgent = getCell(row, 'urgent')
     const notes = getCell(row, 'notes')
 
     const normalized = sanitizeShiftInput(
@@ -284,6 +299,7 @@ export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[];
         start_time: start,
         end_time: end,
         total_slots: 1,
+        urgent: normalizeBoolean(urgent),
         notes,
       },
       index + 2
@@ -321,6 +337,7 @@ function shiftsToLegacyRows(shifts: EditableShiftInput[]) {
       Address: shift.address ?? '',
       Shift_Start: formatLegacyTime(shift.start_time),
       Shift_End: formatLegacyTime(shift.end_time),
+      Urgent: shift.urgent ? 'Yes' : '',
       Notes: shift.notes ?? '',
     }))
   )

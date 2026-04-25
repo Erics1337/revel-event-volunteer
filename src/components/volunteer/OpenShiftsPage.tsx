@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OpenShiftsCalendar } from '@/components/volunteer/OpenShiftsCalendar'
@@ -10,12 +11,28 @@ import { EVENT_DAYS } from '@/lib/shifts/types'
 const ROLE_INFO: Record<string, string> = {
   'ALL DAY - LOCATION CAPTAIN':
     'Own the venue for the day, support volunteers across shifts, and help keep operations calm and coordinated.',
+  'Clean-up':
+    'Help close out the venue, reset rooms, collect supplies, and make the final handoff feel easy.',
+  'Clean-up/Load-out':
+    'Pack supplies, support load-out logistics, and help the event team wrap the week cleanly.',
+  'Elevator Runner':
+    'Keep people moving between floors, answer quick wayfinding questions, and support room flow.',
+  'Load-in/Setup':
+    'Help get the event ready: move supplies, set up signs, prep tables, and make first impressions sparkle.',
   'Building Runner':
     'Jump in wherever the venue needs support: supplies, logistics, troubleshooting, and fast-moving coordination.',
   'Room Runner':
     'Prep rooms, support speakers, and keep sessions running smoothly from setup through reset.',
+  'Volunteer Tshirts':
+    'Help distribute volunteer shirts and make sure the morning crew starts organized and welcomed.',
+  'Welcome Table':
+    'Greet attendees, answer quick questions, and help people find the right room with confidence.',
   'Volunteer Hub / Door Monitor':
     'Welcome attendees, direct traffic, and help the venue feel organized, calm, and easy to navigate.',
+  'Welcome Table / Door Monitor':
+    'Welcome attendees, watch the doorway or check-in area, and keep arrivals moving smoothly.',
+  'Welcome Table / Door Monitor & Cleanup':
+    'Welcome attendees during the shift, then help tidy and reset the space before handoff.',
 }
 
 interface VolunteerShift {
@@ -25,8 +42,11 @@ interface VolunteerShift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
   total_slots: number
   filled_slots: number
+  urgent: boolean
+  notes?: string | null
 }
 
 interface VolunteerAssignment {
@@ -69,6 +89,8 @@ interface ShiftRequestResponse {
     start_time: string
     end_time: string
     location: string
+    address?: string | null
+    urgent?: boolean
     status: AssignmentStatus
   } | null
 }
@@ -92,8 +114,6 @@ export function OpenShiftsPage() {
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
-  const [setupAvailability, setSetupAvailability] = useState<string[]>([])
-  const [savingSetup, setSavingSetup] = useState(false)
   const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -104,7 +124,6 @@ export function OpenShiftsPage() {
   const [requestFeedback, setRequestFeedback] = useState<RequestFeedback | null>(null)
   const [confirmShift, setConfirmShift] = useState<VolunteerShift | null>(null)
   const shiftCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const hasLoadedInitialSetupAvailability = useRef(false)
 
   const loadShifts = useCallback(async () => {
     const response = await fetch('/api/volunteers/shifts')
@@ -121,7 +140,6 @@ export function OpenShiftsPage() {
     if (!user) {
       setVolunteer(null)
       setAssignments([])
-      setSetupAvailability([])
       setContextLoading(false)
       return
     }
@@ -136,7 +154,6 @@ export function OpenShiftsPage() {
     const nextVolunteer = payload.volunteer ?? null
     setVolunteer(nextVolunteer)
     setAssignments(payload.assignments || [])
-    setSetupAvailability(nextVolunteer?.availability || [])
     setContextLoading(false)
   }, [user])
 
@@ -188,7 +205,6 @@ export function OpenShiftsPage() {
 
   const availability = useMemo(() => volunteer?.availability ?? [], [volunteer?.availability])
   const hasVolunteerSetup = Boolean(volunteer?.phone?.trim() && availability.length > 0)
-  const showSetupPanel = Boolean(user)
   const hasAvailabilityOverlap = shifts.some((shift) => availability.includes(shift.day))
   const showAvailabilityOnly =
     Boolean(user) && onlyMyAvailability && availability.length > 0 && hasAvailabilityOverlap
@@ -216,8 +232,16 @@ export function OpenShiftsPage() {
     return filteredDays.includes(calendarDay) ? calendarDay : filteredDays[0]
   }, [calendarDay, filteredDays])
 
-  const urgentShifts = filtered.filter((shift) => shift.filled_slots === 0)
-  const nonUrgentShifts = filtered.filter((shift) => shift.filled_slots > 0)
+  const urgentShifts = filtered.filter((shift) => shift.urgent)
+  const nonUrgentShifts = filtered.filter((shift) => !shift.urgent)
+  const groupedUrgentShifts = useMemo(
+    () => groupShiftsByDay(urgentShifts),
+    [urgentShifts]
+  )
+  const groupedNonUrgentShifts = useMemo(
+    () => groupShiftsByDay(nonUrgentShifts),
+    [nonUrgentShifts]
+  )
   const openCount = shifts.filter((shift) => shift.filled_slots < shift.total_slots).length
   const selectedCalendarShift = useMemo(() => {
     if (!selectedCalendarShiftId) return null
@@ -246,74 +270,6 @@ export function OpenShiftsPage() {
     setSelectedLocation([])
     setSelectedTime([])
   }
-
-  const setupHasChanges = useMemo(
-    () =>
-      availability.length !== setupAvailability.length ||
-      availability.some((day) => !setupAvailability.includes(day)),
-    [availability, setupAvailability]
-  )
-
-  const handleSetupAvailabilityToggle = (day: string) => {
-    setSetupAvailability((current) =>
-      current.includes(day) ? current.filter((value) => value !== day) : [...current, day]
-    )
-  }
-
-  const applyAvailabilityToDayFilter = () => {
-    setSelectedDay([...setupAvailability])
-  }
-
-  const handleSaveSetup = useCallback(async () => {
-    setSavingSetup(true)
-    setErrorMessage(null)
-    setMessage(null)
-
-    try {
-      const response = await fetch('/api/volunteers/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          availability: setupAvailability,
-        }),
-      })
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        volunteer?: VolunteerRecord
-        error?: string
-      }
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to save volunteer setup')
-      }
-
-      setVolunteer(payload.volunteer ?? null)
-      setMessage('Volunteer settings saved.')
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to save volunteer setup')
-    } finally {
-      setSavingSetup(false)
-    }
-  }, [setupAvailability])
-
-  useEffect(() => {
-    if (!user) return
-    if (!hasLoadedInitialSetupAvailability.current) {
-      hasLoadedInitialSetupAvailability.current = true
-      return
-    }
-    if (!setupHasChanges || savingSetup) return
-
-    if (setupAvailability.length === 0) return
-
-    const timeoutId = window.setTimeout(() => {
-      void handleSaveSetup()
-    }, 500)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [handleSaveSetup, savingSetup, setupAvailability, setupHasChanges, user])
 
   useEffect(() => {
     if (!message) return
@@ -406,12 +362,13 @@ export function OpenShiftsPage() {
       }
 
       await Promise.all([loadShifts(), loadContext()])
+      const locationLabel = [shift.location, shift.address].filter(Boolean).join(', ')
       setRequestFeedback({
         tone: 'success',
         title: 'You are signed up',
         description: `${shift.role} on ${formatDayLabel(shift.day).full} from ${formatTimeLabel(
           shift.start_time
-        )} to ${formatTimeLabel(shift.end_time)} at ${shift.location} is now on your schedule.`,
+        )} to ${formatTimeLabel(shift.end_time)} at ${locationLabel} is now on your schedule.`,
       })
     } catch (error) {
       setErrorMessage(
@@ -505,7 +462,7 @@ export function OpenShiftsPage() {
             Volunteer at Boulder Startup Week 2026
           </h1>
           <p className="mx-auto mt-3 max-w-lg text-lg leading-8 text-white/95">
-            {openCount} shifts still need coverage. Sign up for a role, save your availability, and keep your volunteer plan in one place.
+            {openCount} shifts still need coverage. Find a role that fits your day and keep your volunteer plan in one place.
           </p>
         </div>
       </section>
@@ -536,65 +493,6 @@ export function OpenShiftsPage() {
             </button>
           </div>
         ) : null}
-
-        {showSetupPanel && (
-          <section className="mb-4 rounded-xl border border-[#dbe7e8] bg-white p-5 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
-                  Your Availability
-                </p>
-                <h2
-                  className="mt-1 text-2xl font-semibold text-[#3f4a56]"
-                  style={{ fontFamily: 'var(--font-accent)' }}
-                >
-                  {availability.length > 0
-                    ? 'Choose the days you want to help'
-                    : 'Set the days you want to help'}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm text-[#6f7883]">
-                  {availability.length > 0
-                    ? 'These are your saved volunteer days. Use them to keep your profile current, then apply them to the shift list when you want to browse.'
-                    : 'Pick at least one day so the page can focus on shifts that actually work for you.'}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
-                Availability
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {EVENT_DAYS.map((day) => {
-                  const active = setupAvailability.includes(day.date)
-                  return (
-                    <button
-                      key={day.date}
-                      type="button"
-                      onClick={() => handleSetupAvailabilityToggle(day.date)}
-                      className={`rounded-pill border px-3 py-1.5 text-sm font-medium transition ${
-                        active
-                          ? 'border-[#6aa9ae] bg-[#6aa9ae] text-white'
-                          : 'border-[#d8dde3] text-[#505966] hover:border-[#6aa9ae] hover:text-[#6aa9ae]'
-                      }`}
-                    >
-                      {day.label}
-                    </button>
-                  )
-                })}
-              </div>
-              {setupAvailability.length > 0 && (
-                <button
-                  type="button"
-                  onClick={applyAvailabilityToDayFilter}
-                  className="mt-4 cursor-pointer text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
-                >
-                  Show shifts for my available days
-                </button>
-              )}
-            </div>
-          </section>
-        )}
 
         <div className="rounded-md border border-[#e6e8eb] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,26,0.05)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -657,10 +555,46 @@ export function OpenShiftsPage() {
             </div>
           </div>
 
+          {user && availability.length > 0 ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dbe7e8] bg-[#f8fbfb] px-3 py-2.5">
+              <p className="text-sm text-[#5f6772]">
+                {showAvailabilityOnly ? 'Showing your saved availability:' : 'Saved availability:'}{' '}
+                <span className="font-semibold text-[#3f4a56]">
+                  {formatAvailabilitySummary(availability)}
+                </span>
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Link
+                  href="/profile"
+                  className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+                >
+                  Edit in profile
+                </Link>
+                {showAvailabilityOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setOnlyMyAvailability(false)}
+                    className="font-semibold text-[#6f7883] underline underline-offset-2 transition hover:text-[#3f4a56]"
+                  >
+                    Show all days
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setOnlyMyAvailability(true)}
+                    className="font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+                  >
+                    Use my days
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eef1f4] pt-4">
             <div className="flex flex-wrap gap-3 text-sm text-[#6f7883]">
               <span>{filtered.length} matching shifts</span>
-              <span>{urgentShifts.length} priority</span>
+              <span>{urgentShifts.length} urgent</span>
               <span>{filteredDays.length} day view{filteredDays.length !== 1 ? 's' : ''}</span>
             </div>
             {(selectedDay.length > 0 ||
@@ -698,71 +632,61 @@ export function OpenShiftsPage() {
             </div>
           )
         ) : filtered.length > 0 ? (
-          <div className="mt-6">
+          <div className="mt-6 space-y-6">
             {urgentShifts.length > 0 && (
-              <section className="mb-6">
-                <h2
-                  className="mb-3 text-[1.35rem] font-semibold text-[#ee7666]"
-                  style={{ fontFamily: 'var(--font-accent)' }}
-                >
-                  Priority Shifts
-                </h2>
-                <div className="rounded-lg border border-[#f0b8b1] bg-[#fff6f4] p-3 sm:p-4">
-                  <p className="mb-3 text-xs font-semibold text-[#ef8a7f]">
-                    These shifts have zero assigned volunteers. They need coverage first.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {urgentShifts.map((shift) => (
-                      <div
-                        key={shift.id}
-                        ref={(element) => {
-                          shiftCardRefs.current[shift.id] = element
-                        }}
-                      >
-                        <ShiftCard
-                          shift={shift}
-                          relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                          submitting={submittingShiftId === shift.id}
-                          onRequest={() => handlePrimaryAction(shift)}
-                          onCancel={() => handleCancel(shift)}
-                          highlight={highlightedShiftId === shift.id}
-                        />
-                      </div>
-                    ))}
+              <section className="rounded-2xl border border-[#f1b9a7] bg-[#fff7f1] p-4 shadow-[0_10px_30px_rgba(239,143,61,0.08)] sm:p-5">
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#d46d2d]">
+                      Admin Flagged
+                    </p>
+                    <h2
+                      className="mt-1 text-2xl font-semibold text-[#9e4f25]"
+                      style={{ fontFamily: 'var(--font-accent)' }}
+                    >
+                      Urgent Shifts
+                    </h2>
                   </div>
+                  <p className="max-w-xl text-sm leading-6 text-[#9e6144]">
+                    These shifts were marked urgent by the volunteer team because they need extra attention.
+                  </p>
                 </div>
+                <ShiftDayGroups
+                  groups={groupedUrgentShifts}
+                  assignmentByShiftId={assignmentByShiftId}
+                  submittingShiftId={submittingShiftId}
+                  highlightedShiftId={highlightedShiftId}
+                  shiftCardRefs={shiftCardRefs}
+                  onRequest={handlePrimaryAction}
+                  onCancel={handleCancel}
+                />
               </section>
             )}
 
             {nonUrgentShifts.length > 0 && (
               <section>
                 {urgentShifts.length > 0 && (
-                  <h2
-                    className="mb-3 text-[1.35rem] font-semibold text-[#3f4a56]"
-                    style={{ fontFamily: 'var(--font-accent)' }}
-                  >
-                    All Matching Shifts
-                  </h2>
-                )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {nonUrgentShifts.map((shift) => (
-                    <div
-                      key={shift.id}
-                      ref={(element) => {
-                        shiftCardRefs.current[shift.id] = element
-                      }}
+                  <div className="mb-4">
+                    <h2
+                      className="text-2xl font-semibold text-[#3f4a56]"
+                      style={{ fontFamily: 'var(--font-accent)' }}
                     >
-                      <ShiftCard
-                        shift={shift}
-                        relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
-                        submitting={submittingShiftId === shift.id}
-                        onRequest={() => handlePrimaryAction(shift)}
-                        onCancel={() => handleCancel(shift)}
-                        highlight={highlightedShiftId === shift.id}
-                      />
-                    </div>
-                  ))}
-                </div>
+                      All Other Matching Shifts
+                    </h2>
+                    <p className="mt-1 text-sm text-[#6f7883]">
+                      Browse the rest of the available schedule by day.
+                    </p>
+                  </div>
+                )}
+                <ShiftDayGroups
+                  groups={groupedNonUrgentShifts}
+                  assignmentByShiftId={assignmentByShiftId}
+                  submittingShiftId={submittingShiftId}
+                  highlightedShiftId={highlightedShiftId}
+                  shiftCardRefs={shiftCardRefs}
+                  onRequest={handlePrimaryAction}
+                  onCancel={handleCancel}
+                />
               </section>
             )}
           </div>
@@ -877,9 +801,20 @@ export function OpenShiftsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <PinIcon />
-                  <span>{confirmShift.location}</span>
+                  <span>
+                    {confirmShift.location}
+                    {confirmShift.address ? `, ${confirmShift.address}` : ''}
+                  </span>
                 </div>
               </div>
+              <a
+                href={getDirectionsHref(confirmShift)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+              >
+                Open directions
+              </a>
               <p className="mt-4 text-sm leading-6 text-[#6f7883]">
                 Ready to sign up for this shift? You can cancel later from your schedule.
               </p>
@@ -1054,6 +989,136 @@ function FilterMultiSelect({
   )
 }
 
+interface ShiftDayGroup {
+  day: string
+  shifts: VolunteerShift[]
+}
+
+function groupShiftsByDay(shifts: VolunteerShift[]): ShiftDayGroup[] {
+  const groups = new Map<string, VolunteerShift[]>()
+
+  for (const shift of shifts) {
+    const current = groups.get(shift.day) ?? []
+    current.push(shift)
+    groups.set(shift.day, current)
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([day, dayShifts]) => ({
+      day,
+      shifts: [...dayShifts].sort(
+        (left, right) =>
+          left.start_time.localeCompare(right.start_time) ||
+          left.location.localeCompare(right.location) ||
+          left.role.localeCompare(right.role)
+      ),
+    }))
+}
+
+function ShiftDayGroups({
+  groups,
+  assignmentByShiftId,
+  submittingShiftId,
+  highlightedShiftId,
+  shiftCardRefs,
+  onRequest,
+  onCancel,
+}: {
+  groups: ShiftDayGroup[]
+  assignmentByShiftId: Map<string, VolunteerAssignment>
+  submittingShiftId: string | null
+  highlightedShiftId: string | null
+  shiftCardRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>
+  onRequest: (shift: VolunteerShift) => void
+  onCancel: (shift: VolunteerShift) => void
+}) {
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set())
+
+  const toggleDay = (day: string) => {
+    setCollapsedDays((current) => {
+      const next = new Set(current)
+      if (next.has(day)) {
+        next.delete(day)
+      } else {
+        next.add(day)
+      }
+      return next
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => {
+        const collapsed = collapsedDays.has(group.day)
+
+        return (
+          <section
+            key={group.day}
+            className="overflow-hidden rounded-2xl border border-[#dfe8e8] bg-white shadow-[0_12px_34px_rgba(49,88,92,0.08)]"
+          >
+            <button
+              type="button"
+              onClick={() => toggleDay(group.day)}
+              aria-expanded={!collapsed}
+              className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-[#e4eeee] bg-[linear-gradient(135deg,#f6fbfb_0%,#fff8ef_100%)] px-4 py-3 text-left transition hover:brightness-[0.99]"
+            >
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7bb8bc]">
+                  {formatDayLabel(group.day).short}
+                </p>
+                <h3
+                  className="text-xl font-semibold text-[#3f4a56]"
+                  style={{ fontFamily: 'var(--font-accent)' }}
+                >
+                  {formatDayLabel(group.day).full}
+                </h3>
+              </div>
+              <span className="flex items-center gap-2">
+                <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-xs font-semibold text-[#5f969a]">
+                  {group.shifts.length} shift{group.shifts.length !== 1 ? 's' : ''}
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dbe7e8] bg-white/80 text-[#6aa9ae] transition">
+                  <svg
+                    className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </span>
+            </button>
+            {!collapsed ? (
+              <div className="grid gap-2 bg-[#f7fbfb] p-2 lg:grid-cols-2">
+                {group.shifts.map((shift) => (
+                  <div
+                    key={shift.id}
+                    ref={(element) => {
+                      shiftCardRefs.current[shift.id] = element
+                    }}
+                  >
+                    <ShiftCard
+                      shift={shift}
+                      relationshipStatus={assignmentByShiftId.get(shift.id)?.status ?? null}
+                      submitting={submittingShiftId === shift.id}
+                      onRequest={() => onRequest(shift)}
+                      onCancel={() => onCancel(shift)}
+                      highlight={highlightedShiftId === shift.id}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
 function ShiftCard({
   shift,
   relationshipStatus,
@@ -1069,146 +1134,138 @@ function ShiftCard({
   onCancel: () => void
   highlight?: boolean
 }) {
-  const [showRoleInfo, setShowRoleInfo] = useState(false)
-
   const open = Math.max(0, shift.total_slots - shift.filled_slots)
   const full = open === 0
-  const pct = Math.round((shift.filled_slots / shift.total_slots) * 100)
-  const almostFull = !full && pct >= 80
   const roleDescription = ROLE_INFO[shift.role]
+  const notes = shift.notes?.trim()
   const description =
     roleDescription ||
     'Support the volunteer team and help this part of Boulder Startup Week run smoothly.'
+  const directionsHref = getDirectionsHref(shift)
 
   const isRequested = relationshipStatus === 'requested'
   const isAssigned = relationshipStatus === 'assigned'
   const canRequest = !full && !isRequested && !isAssigned
+  const statusLabel = isAssigned ? 'Assigned' : isRequested ? 'Requested' : full ? 'Full' : 'Open'
+  const statusClassName = isAssigned
+    ? 'bg-[#6aa9ae] text-white'
+    : isRequested
+      ? 'bg-[#fff1dc] text-[#ef8f3d]'
+      : full
+        ? 'bg-[#eef0f2] text-[#7f8691]'
+        : 'bg-[#eaf7ef] text-[#43805a]'
 
   return (
     <article
-      className={`rounded-xl border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition ${
+      className={`group relative h-full overflow-visible rounded-xl border border-[#e4eeee] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition ${
         highlight
-          ? 'border-[#6aa9ae] ring-2 ring-[#d6eced] shadow-[0_0_0_6px_rgba(214,236,237,0.72)]'
-          : 'border-[#e7ebef]'
+          ? 'relative z-[1] border-[#6aa9ae] ring-2 ring-[#cde7e7] shadow-[0_0_0_6px_rgba(214,236,237,0.45)]'
+          : 'hover:border-[#cde7e7] hover:shadow-[0_10px_24px_rgba(49,88,92,0.08)]'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-xs font-semibold text-[#7bb8bc]">
-            {shift.role}
+      {shift.urgent ? (
+        <div className="absolute inset-y-0 left-0 w-1 bg-[#ef8f3d]" aria-hidden="true" />
+      ) : null}
+
+      <div className="grid h-full gap-3 sm:grid-cols-[4.9rem_minmax(0,1fr)_auto] sm:items-start">
+        <div className="flex items-center gap-2 sm:block">
+          <div className="rounded-lg bg-[#f6fafa] px-2 py-1.5 text-center">
+            <div className="text-sm font-semibold text-[#3f4a56]">
+              {formatTimeLabel(shift.start_time)}
+            </div>
+            <div className="text-xs text-[#7f8691]">
+              {formatTimeLabel(shift.end_time)}
+            </div>
+          </div>
+          <span className={`mt-2 hidden rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:inline-flex ${statusClassName}`}>
+            {statusLabel}
           </span>
-          {roleDescription && (
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h4 className="text-[15px] font-semibold leading-6 text-[#3f4a56]">
+              {shift.role}
+            </h4>
             <div className="relative">
               <button
                 type="button"
-                aria-expanded={showRoleInfo}
                 aria-label={`What does ${shift.role} do?`}
-                onClick={() => setShowRoleInfo((current) => !current)}
-                className="flex h-5 w-5 items-center justify-center rounded-full border border-[#e1e6ea] bg-[#f6f7f5] text-[11px] font-semibold text-[#8d94a0] transition hover:border-[#6aa9ae] hover:text-[#6aa9ae]"
+                className="peer flex h-5 w-5 items-center justify-center rounded-full border border-[#dce7e8] bg-[#f6fafa] text-[11px] font-bold text-[#6aa9ae] transition hover:border-[#6aa9ae] hover:bg-[#eef8f8] focus:border-[#6aa9ae] focus:outline-none focus:ring-2 focus:ring-[#cde7e7]"
               >
-                ?
+                i
               </button>
-              {showRoleInfo && (
-                <div className="absolute left-0 top-7 z-10 w-64 rounded-md border border-[#e7ebef] bg-white p-3 text-xs leading-5 text-[#6f7883] shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
-                  <p className="mb-1 font-semibold text-[#3f4a56]">{shift.role}</p>
-                  <p>{roleDescription}</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowRoleInfo(false)}
-                    className="absolute right-2 top-2 text-[#a0a6af] transition hover:text-[#3f4a56]"
-                    aria-label="Close role details"
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-              )}
+              <div className="pointer-events-none absolute left-0 top-7 z-20 hidden w-72 rounded-xl border border-[#dbe7e8] bg-white p-3 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] peer-hover:block peer-focus:block">
+                <p className="mb-1 font-semibold text-[#3f4a56]">What you’ll do</p>
+                <p>{description}</p>
+              </div>
             </div>
-          )}
-        </div>
+            {shift.urgent ? (
+              <span className="rounded-full bg-[#fff1dc] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.02em] text-[#d46d2d]">
+                Urgent
+              </span>
+            ) : null}
+            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold sm:hidden ${statusClassName}`}>
+              {statusLabel}
+            </span>
+          </div>
 
-        {isAssigned ? (
-          <span className="rounded-full bg-[#6aa9ae] px-3 py-1 text-xs font-semibold text-white">
-            Assigned
-          </span>
-        ) : isRequested ? (
-          <span className="rounded-full bg-[#fff1dc] px-3 py-1 text-xs font-semibold text-[#ef8f3d]">
-            Request submitted
-          </span>
-        ) : null}
-      </div>
-
-      <p className="mt-4 text-[15px] leading-7 text-[#6f7883]">{description}</p>
-
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-[#505966]">
-        <span className="flex items-center gap-1.5">
-          <CalendarIcon />
-          {formatDayLabel(shift.day).full}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <ClockIcon />
-          {formatTimeLabel(shift.start_time)} - {formatTimeLabel(shift.end_time)}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <PinIcon />
-          {shift.location}
-        </span>
-      </div>
-
-      <div className="mt-3 flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span
-            className={
-              almostFull
-                ? 'font-semibold text-[#ef8f3d]'
-                : full
-                  ? 'text-[#a0a6af]'
-                  : 'text-[#6f7883]'
+          <a
+            href={directionsHref}
+            target="_blank"
+            rel="noreferrer"
+            className="group/location relative mt-1 flex min-w-0 items-center gap-1.5 text-sm text-[#5f6772] transition hover:text-[#4f9da2] focus:outline-none focus:ring-2 focus:ring-[#cde7e7]"
+            aria-label={
+              shift.address
+                ? `Open ${shift.location}, ${shift.address} in Google Maps`
+                : `Open ${shift.location} in Google Maps`
             }
           >
-            {full
-              ? 'Shift full'
-              : almostFull
-                ? `${open} spot${open !== 1 ? 's' : ''} left!`
-                : `${open} of ${shift.total_slots} spots open`}
-          </span>
-          <span className="text-[#a0a6af]">{pct}%</span>
-        </div>
-        <div className="h-1.5 w-full rounded-full bg-[#eceff2]">
-          <div
-            className={`h-1.5 rounded-full ${
-              pct === 100 ? 'bg-[#a0a6af]' : almostFull ? 'bg-[#ef8f3d]' : 'bg-[#6aa9ae]'
-            }`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
+            <PinIcon />
+            <span className="truncate font-semibold text-[#4c5662] underline-offset-2 group-hover/location:text-[#4f9da2] group-hover/location:underline group-focus/location:text-[#4f9da2] group-focus/location:underline">
+              {shift.location}
+            </span>
+            {shift.address ? (
+              <span className="pointer-events-none absolute left-0 top-6 z-20 hidden max-w-[18rem] rounded-xl border border-[#dbe7e8] bg-white px-3 py-2 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] group-hover/location:block group-focus/location:block">
+                {shift.address}
+              </span>
+            ) : null}
+          </a>
 
-      <div className="mt-4 border-t border-[#eceff2] pt-3">
-        {isRequested || isAssigned ? (
-          <button
-            onClick={onCancel}
-            disabled={submitting}
-            className="text-sm font-medium text-[#ee7666] transition hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting
-              ? 'Cancelling...'
-              : isRequested
-                ? 'Cancel request'
-                : 'Cancel sign-up'}
-          </button>
-        ) : (
-          <button
-            onClick={onRequest}
-            disabled={submitting || !canRequest}
-            className={`rounded-sm border-2 px-5 py-2 text-sm font-semibold transition ${
-              canRequest
-                ? 'border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
-                : 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
-            }`}
-          >
-            {submitting ? 'Signing up...' : full ? 'Full' : 'Sign up'}
-          </button>
-        )}
+          {notes ? (
+            <p className="mt-1.5 text-xs leading-5 text-[#806039]">
+              <span className="font-semibold">Note:</span> {notes}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex items-start justify-start sm:justify-end">
+          {isRequested || isAssigned ? (
+            <button
+              onClick={onCancel}
+              disabled={submitting}
+              className="whitespace-nowrap text-sm font-medium text-[#ee7666] transition hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting
+                ? 'Cancelling...'
+                : isRequested
+                  ? 'Cancel request'
+                  : 'Cancel sign-up'}
+            </button>
+          ) : (
+            <button
+              onClick={onRequest}
+              disabled={submitting || !canRequest}
+              className={`whitespace-nowrap rounded-sm border-2 px-3.5 py-1.5 text-sm font-semibold transition ${
+                canRequest
+                  ? 'border-[#6aa9ae] text-[#6aa9ae] shadow-[3px_3px_0_rgba(31,41,55,0.85)] hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#eef8f8] hover:shadow-[1px_1px_0_rgba(31,41,55,0.85)]'
+                  : 'cursor-not-allowed border-[#c9d1d8] text-[#a0a6af]'
+              }`}
+            >
+              {submitting ? 'Signing up...' : full ? 'Full' : 'Sign up'}
+            </button>
+          )}
+        </div>
       </div>
     </article>
   )
@@ -1231,6 +1288,14 @@ function formatDayLabel(day: string) {
   }
 }
 
+function formatAvailabilitySummary(availability: string[]) {
+  const labels = availability
+    .map((date) => EVENT_DAYS.find((day) => day.date === date)?.label ?? date)
+    .join(', ')
+
+  return labels || 'No days selected'
+}
+
 function formatTimeLabel(time: string) {
   const [hours, minutes] = time.slice(0, 5).split(':')
   const date = new Date()
@@ -1239,6 +1304,11 @@ function formatTimeLabel(time: string) {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function getDirectionsHref(shift: Pick<VolunteerShift, 'location' | 'address'>) {
+  const query = [shift.location, shift.address].filter(Boolean).join(', ')
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 function ClockIcon() {

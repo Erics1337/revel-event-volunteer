@@ -69,7 +69,7 @@ interface SpreadsheetTableRowProps {
   onDelete: () => void
   onDuplicate: () => void
   onMessage: (message: string | null) => void
-  onRowChange: (key: keyof ShiftEditorInput, value: string | number) => void
+  onRowChange: (key: keyof ShiftEditorInput, value: string | number | boolean) => void
   onUnassignVolunteer: (shiftId: string, volunteerId: string) => Promise<void>
   onUpdateVenue: (
     id: string,
@@ -101,6 +101,7 @@ function toEditableShift(shift: VolunteerShift): SpreadsheetRow {
     location: shift.location,
     address: shift.address ?? VENUE_ADDRESSES[shift.location as keyof typeof VENUE_ADDRESSES] ?? '',
     total_slots: 1,
+    urgent: Boolean(shift.urgent),
     notes: shift.notes ?? '',
   }
 }
@@ -537,6 +538,17 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
         />
       </td>
       <td className="px-3 py-3">
+        <label className="flex min-w-[110px] cursor-pointer items-center gap-2 rounded-md border border-orange-100 bg-orange-50/70 px-3 py-2 text-sm font-medium text-charcoal">
+          <input
+            type="checkbox"
+            checked={Boolean(row.urgent)}
+            onChange={(event) => onRowChange('urgent', event.target.checked)}
+            className="h-4 w-4 rounded border-orange-300 text-orange-500 focus:ring-orange-500"
+          />
+          Urgent
+        </label>
+      </td>
+      <td className="px-3 py-3">
         <textarea
           value={row.notes ?? ''}
           onChange={(event) => onRowChange('notes', event.target.value)}
@@ -625,7 +637,7 @@ export function ShiftSpreadsheet({
   )
 
   const updateRow = useCallback(
-    (index: number, key: keyof ShiftEditorInput, value: string | number) => {
+    (index: number, key: keyof ShiftEditorInput, value: string | number | boolean) => {
       setRows((current) =>
         current.map((row, rowIndex) => {
           if (rowIndex !== index) return row
@@ -671,6 +683,7 @@ export function ShiftSpreadsheet({
         location: row.location,
         address: row.address ?? '',
         total_slots: 1,
+        urgent: Boolean(row.urgent),
         notes: row.notes ?? '',
         draftKey: createDraftKey(),
       }
@@ -813,6 +826,7 @@ export function ShiftSpreadsheet({
                   'Address',
                   'Start',
                   'End',
+                  'Urgent',
                   'Notes',
                   '',
                 ].map((header) => (
@@ -828,7 +842,7 @@ export function ShiftSpreadsheet({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-10 text-center text-gray-text">
+                  <td colSpan={12} className="px-4 py-10 text-center text-gray-text">
                     No shifts yet. Add a row or import a CSV to get started.
                   </td>
                 </tr>
@@ -886,6 +900,7 @@ function createEmptyShift(role: string): ShiftEditorInput {
     location: VENUE_NAMES[0],
     address: VENUE_ADDRESSES[VENUE_NAMES[0]],
     total_slots: 1,
+    urgent: false,
     notes: '',
   }
 }

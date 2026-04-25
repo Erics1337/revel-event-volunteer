@@ -3,11 +3,21 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
+import { EVENT_DAYS } from '@/lib/shifts/types'
+
+interface VolunteerContextResponse {
+  volunteer?: {
+    availability?: string[] | null
+  } | null
+  error?: string
+}
 
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [availability, setAvailability] = useState<string[]>([])
+  const [savedAvailability, setSavedAvailability] = useState<string[]>([])
   const [formData, setFormData] = useState({
     name: '',
     headline: '',
@@ -32,6 +42,30 @@ export default function ProfilePage() {
     }
   }, [profile])
 
+  useEffect(() => {
+    if (!user) return
+
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch('/api/volunteers/me')
+          const payload = (await response.json().catch(() => ({}))) as VolunteerContextResponse
+          if (!response.ok) {
+            throw new Error(payload.error || 'Failed to load volunteer availability')
+          }
+
+          const nextAvailability = payload.volunteer?.availability ?? []
+          setAvailability(nextAvailability)
+          setSavedAvailability(nextAvailability)
+        } catch (error) {
+          console.error('Error loading volunteer availability:', error)
+        }
+      })()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [user])
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -44,7 +78,25 @@ export default function ProfilePage() {
       })
 
       if (response.ok) {
+        const volunteerResponse = await fetch('/api/volunteers/me', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            phone: formData.phone,
+            availability,
+          }),
+        })
+
+        if (!volunteerResponse.ok) {
+          const error = await volunteerResponse.json().catch(() => ({}))
+          throw new Error(error.error || 'Failed to update volunteer availability')
+        }
+
         await refreshProfile()
+        setSavedAvailability(availability)
         setEditing(false)
       } else {
         const error = await response.json()
@@ -52,7 +104,7 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error updating profile:', error)
-      alert('Failed to update profile')
+      alert(error instanceof Error ? error.message : 'Failed to update profile')
     } finally {
       setSaving(false)
     }
@@ -69,7 +121,14 @@ export default function ProfilePage() {
         email_public: profile.email_public || false,
       })
     }
+    setAvailability(savedAvailability)
     setEditing(false)
+  }
+
+  const handleAvailabilityToggle = (day: string) => {
+    setAvailability((current) =>
+      current.includes(day) ? current.filter((value) => value !== day) : [...current, day]
+    )
   }
 
   const formatDate = (dateString: string) => {
@@ -230,6 +289,34 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Volunteer availability
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {EVENT_DAYS.map((day) => {
+                    const active = availability.includes(day.date)
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        onClick={() => handleAvailabilityToggle(day.date)}
+                        className={`rounded-pill border px-3 py-1.5 text-sm font-medium transition ${
+                          active
+                            ? 'border-[#6aa9ae] bg-[#6aa9ae] text-white'
+                            : 'border-[#d8dde3] text-[#505966] hover:border-[#6aa9ae] hover:text-[#6aa9ae]'
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-gray-text">
+                  These days help the open shifts page focus on shifts that fit your schedule.
+                </p>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
                   LinkedIn URL
                 </label>
                 <input
@@ -299,6 +386,21 @@ export default function ProfilePage() {
                     'No phone number on file'
                   )}
                 </p>
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-lg font-semibold text-charcoal">Volunteer availability</h3>
+                {savedAvailability.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {EVENT_DAYS.filter((day) => savedAvailability.includes(day.date)).map((day) => (
+                      <span key={day.date} className="badge-default">
+                        {day.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-text">No availability selected</p>
+                )}
               </div>
 
               {profile.linkedin_url && (

@@ -46,8 +46,11 @@ export async function GET() {
           start_time,
           end_time,
           location,
+          address,
           total_slots,
-          filled_slots
+          filled_slots,
+          urgent,
+          notes
         )
       `
     )

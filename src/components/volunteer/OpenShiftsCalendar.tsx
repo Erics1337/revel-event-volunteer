@@ -14,8 +14,11 @@ interface VolunteerShift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
   total_slots: number
   filled_slots: number
+  urgent: boolean
+  notes?: string | null
 }
 
 interface OpenShiftsCalendarProps {
@@ -35,9 +38,8 @@ function combineDayTime(day: string, time: string): string {
 function getShiftState(
   shift: VolunteerShift,
   relationshipStatus: AssignmentStatus | null
-): 'assigned' | 'requested' | 'full' | 'open' {
+): 'assigned' | 'full' | 'open' {
   if (relationshipStatus === 'assigned') return 'assigned'
-  if (relationshipStatus === 'requested') return 'requested'
   if (shift.filled_slots >= shift.total_slots) return 'full'
   return 'open'
 }
@@ -48,12 +50,6 @@ function getEventColors(state: ReturnType<typeof getShiftState>) {
       return {
         backgroundColor: '#6aa9ae',
         borderColor: '#4d8f93',
-        textColor: '#ffffff',
-      }
-    case 'requested':
-      return {
-        backgroundColor: '#ef8f3d',
-        borderColor: '#d97706',
         textColor: '#ffffff',
       }
     case 'full':
@@ -97,8 +93,10 @@ export function OpenShiftsCalendar({
           ...colors,
           extendedProps: {
             location: shift.location,
+            address: shift.address,
             openSpots,
             totalSlots: shift.total_slots,
+            urgent: shift.urgent,
             relationshipStatus,
             state,
           },
@@ -109,7 +107,9 @@ export function OpenShiftsCalendar({
 
   useEffect(() => {
     if (!activeDay) return
-    calendarRef.current?.getApi().gotoDate(activeDay)
+    window.setTimeout(() => {
+      calendarRef.current?.getApi().gotoDate(activeDay)
+    }, 0)
   }, [activeDay])
 
   const selectedDayIndex = availableDays.indexOf(activeDay)
@@ -161,7 +161,6 @@ export function OpenShiftsCalendar({
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs font-medium text-[#5f6772]">
         <span className="rounded-full bg-[#eef8f8] px-3 py-1 text-[#31585c]">Open</span>
-        <span className="rounded-full bg-[#ef8f3d] px-3 py-1 text-white">Requested</span>
         <span className="rounded-full bg-[#6aa9ae] px-3 py-1 text-white">Assigned</span>
         <span className="rounded-full bg-[#b9c1ca] px-3 py-1 text-white">Full</span>
       </div>
@@ -189,11 +188,9 @@ export function OpenShiftsCalendar({
           events={events}
           eventClick={handleEventClick}
           eventContent={(arg) => {
-            const { location, openSpots, totalSlots, state } = arg.event.extendedProps as {
+            const { location, state } = arg.event.extendedProps as {
               location: string
-              openSpots: number
-              totalSlots: number
-              state: 'assigned' | 'requested' | 'full' | 'open'
+              state: 'assigned' | 'full' | 'open'
             }
 
             return (
@@ -201,7 +198,7 @@ export function OpenShiftsCalendar({
                 <div className="truncate font-semibold">{arg.event.title}</div>
                 <div className="truncate opacity-90">{location}</div>
                 <div className="opacity-90">
-                  {state === 'full' ? 'Shift full' : `${openSpots} of ${totalSlots} spots open`}
+                  {state === 'full' ? 'Full' : 'Open'}
                 </div>
               </div>
             )

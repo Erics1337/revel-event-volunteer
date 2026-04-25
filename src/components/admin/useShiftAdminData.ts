@@ -18,6 +18,7 @@ export interface ShiftEditorInput {
   location: string
   address?: string | null
   total_slots: number
+  urgent?: boolean
   notes?: string | null
 }
 

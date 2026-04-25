@@ -104,6 +104,7 @@ export default function AdminShiftsCalendarPage() {
               location: shifts.find((shift) => shift.id === shiftId)?.location || '',
               address: shifts.find((shift) => shift.id === shiftId)?.address ?? '',
               total_slots: shifts.find((shift) => shift.id === shiftId)?.total_slots || 1,
+              urgent: Boolean(shifts.find((shift) => shift.id === shiftId)?.urgent),
               notes: shifts.find((shift) => shift.id === shiftId)?.notes ?? '',
             })
           }

@@ -80,6 +80,7 @@ export function ShiftModal({
       ''
   )
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [urgent, setUrgent] = useState(Boolean(initial?.urgent))
   const [saving, setSaving] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [volunteerSearch, setVolunteerSearch] = useState('')
@@ -107,6 +108,7 @@ export function ShiftModal({
         location,
         address,
         total_slots: 1,
+        urgent,
         notes,
       })
       onClose()
@@ -282,6 +284,21 @@ export function ShiftModal({
                 placeholder="Optional shift notes"
               />
             </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-orange-200 bg-orange-50/70 p-3">
+              <input
+                type="checkbox"
+                checked={urgent}
+                onChange={(event) => setUrgent(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-orange-300 text-orange-500 focus:ring-orange-500"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-charcoal">Mark as urgent</span>
+                <span className="mt-1 block text-xs leading-5 text-gray-text">
+                  Urgent shifts get a special callout on the volunteer open shifts page.
+                </span>
+              </span>
+            </label>
 
             <div className="flex items-center justify-between pt-2">
               {mode === 'edit' && onDelete ? (
