@@ -799,8 +799,8 @@ export default function AdminVolunteersPage() {
             </div>
             <div className="flex gap-6 text-sm shrink-0">
               <div className="text-center">
-                <p className="text-2xl font-bold font-accent text-charcoal">{volunteers.length}</p>
-                <p className="text-gray-text">Volunteers</p>
+                <p className="text-2xl font-bold font-accent text-charcoal">{confirmedVolunteers.length}</p>
+                <p className="text-gray-text">Volunteers signed up</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold font-accent text-teal">
@@ -880,7 +880,7 @@ export default function AdminVolunteersPage() {
 
         <div className="flex gap-1 border-b border-gray-border mb-6">
           {[
-            { id: 'volunteers', label: `Volunteers (${volunteers.length})` },
+            { id: 'volunteers', label: `Volunteers (${confirmedVolunteers.length})` },
             { id: 'coverage', label: 'Needs Coverage' },
             { id: 'shifts', label: `Covered Shifts (${coveredShifts.length})` },
           ].map(({ id, label }) => (
