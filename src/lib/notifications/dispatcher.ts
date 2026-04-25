@@ -561,6 +561,51 @@ export async function sendBulkMessage(
   return { sent, failed, queued, scheduledFor }
 }
 
+export async function queueTestReminderEmail(options: {
+  userId: string | null
+  email: string
+  name?: string | null
+  scheduledFor?: Date
+}) {
+  const supabase = await createClient()
+  const scheduledFor = options.scheduledFor ?? new Date()
+  const testShift: Shift = {
+    id: 'test-reminder',
+    role: 'Test Volunteer Reminder',
+    day: '2026-05-04',
+    start_time: '09:00',
+    end_time: '10:00',
+    location: 'Reminder Test',
+    address: 'This is a test email from the volunteer admin reminder system.',
+  }
+  const template = reminder1hTemplate(testShift, {
+    name: options.name || 'Admin',
+    email: options.email,
+  })
+
+  const { data: notification, error } = await notificationsTable(supabase)
+    .insert({
+      user_id: options.userId,
+      recipient_email: options.email,
+      type: 'admin_message',
+      subject: `[Test] ${template.subject}`,
+      body: template.html,
+      scheduled_for: scheduledFor.toISOString(),
+    } as any)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return {
+    id: notification?.id as string,
+    recipientEmail: options.email,
+    scheduledFor: scheduledFor.toISOString(),
+  }
+}
+
 export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
   const supabase = await createClient()
 

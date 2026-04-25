@@ -29,13 +29,6 @@ type MessageTarget =
   | { kind: 'all' }
   | { kind: 'volunteer'; volunteerId: string }
 
-interface ReminderResult {
-  queued: number
-  sent: number
-  failed: number
-  skipped: number
-}
-
 interface ReminderSettingsState {
   reminders_enabled: boolean
   reminder_24h_enabled: boolean
@@ -46,13 +39,7 @@ interface ReminderSettingsState {
   time_zone: string
 }
 
-interface ReminderPreviewState {
-  now: string
-  counts: {
-    reminder_24h: { queued: number }
-    reminder_1h: { queued: number }
-  }
-}
+type ReminderModalView = 'settings' | 'messages'
 
 interface SendMessageResponse {
   error?: string
@@ -78,12 +65,10 @@ export default function AdminVolunteersPage() {
 
   const [messageModal, setMessageModal] = useState<MessageTarget | null>(null)
   const [reminderModal, setReminderModal] = useState(false)
-  const [sendingReminders, setSendingReminders] = useState(false)
-  const [reminderResult, setReminderResult] = useState<ReminderResult | null>(null)
+  const [reminderModalView, setReminderModalView] = useState<ReminderModalView>('settings')
   const [reminderSettings, setReminderSettings] = useState<ReminderSettingsState>({
     ...DEFAULT_REMINDER_SETTINGS,
   })
-  const [reminderPreview, setReminderPreview] = useState<ReminderPreviewState | null>(null)
   const [savingReminderSettings, setSavingReminderSettings] = useState(false)
   const [manageShiftId, setManageShiftId] = useState<string | null>(null)
   const [sendingShiftReminderId, setSendingShiftReminderId] = useState<string | null>(null)
@@ -93,12 +78,16 @@ export default function AdminVolunteersPage() {
   const [scheduledMessageBody, setScheduledMessageBody] = useState('')
   const [sendingScheduledMessage, setSendingScheduledMessage] = useState(false)
   const [scheduledMessageNotice, setScheduledMessageNotice] = useState<string | null>(null)
+  const [sendingTestReminder, setSendingTestReminder] = useState(false)
+  const [testReminderNotice, setTestReminderNotice] = useState<string | null>(null)
 
   const openReminderModal = useCallback((day?: string) => {
-    setReminderResult(null)
     setScheduledMessageNotice(null)
+    setTestReminderNotice(null)
+    setReminderModalView('settings')
     if (day) {
       setScheduledMessageDay(day)
+      setReminderModalView('messages')
     }
     setReminderModal(true)
   }, [])
@@ -178,7 +167,6 @@ export default function AdminVolunteersPage() {
         time_zone:
           reminderSettingsData.settings?.time_zone ?? DEFAULT_REMINDER_SETTINGS.time_zone,
       })
-      setReminderPreview(reminderSettingsData.preview || null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load volunteer data'
       setErrorMessage(message)
@@ -454,7 +442,7 @@ export default function AdminVolunteersPage() {
   }
 
   const handleReminderNumberChange = (
-    key: 'reminder_24h_hours_before' | 'reminder_1h_hours_before' | 'send_window_minutes',
+    key: 'reminder_24h_hours_before' | 'reminder_1h_hours_before',
     value: string
   ) => {
     const nextValue = Number(value)
@@ -483,7 +471,6 @@ export default function AdminVolunteersPage() {
       }
 
       setReminderSettings(payload.settings)
-      setReminderPreview(payload.preview || null)
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to save reminder settings'
@@ -494,40 +481,30 @@ export default function AdminVolunteersPage() {
     }
   }
 
-  const handleSendReminders = async () => {
-    setSendingReminders(true)
+  const handleQueueTestReminder = async () => {
+    setSendingTestReminder(true)
+    setTestReminderNotice(null)
     setErrorMessage(null)
 
     try {
-      const response = await fetch('/api/admin/notifications/reminders', {
+      const response = await fetch('/api/admin/notifications/reminders/test', {
         method: 'POST',
       })
-
       const payload = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to send reminders')
+        throw new Error(payload.error || 'Failed to queue test reminder')
       }
 
-      setReminderResult({
-        queued: payload.queued || 0,
-        sent: payload.sent || 0,
-        failed: payload.failed || 0,
-        skipped: payload.skipped || 0,
-      })
-      setReminderPreview({
-        now: payload.now || new Date().toISOString(),
-        counts: payload.counts || {
-          reminder_24h: { queued: 0 },
-          reminder_1h: { queued: 0 },
-        },
-      })
+      setTestReminderNotice(
+        `Test reminder queued for ${payload.recipientEmail || 'your email'}. Supabase checks the email queue every 10 minutes, so it should send soon.`
+      )
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to send reminders'
+      const message = error instanceof Error ? error.message : 'Failed to queue test reminder'
       setErrorMessage(message)
       window.alert(message)
     } finally {
-      setSendingReminders(false)
+      setSendingTestReminder(false)
     }
   }
 
@@ -1381,7 +1358,7 @@ export default function AdminVolunteersPage() {
 
       {reminderModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-md p-6 max-w-lg w-full shadow-card max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-md p-6 max-w-2xl w-full shadow-card max-h-[90vh] overflow-y-auto">
             <div className="flex flex-col gap-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1389,8 +1366,8 @@ export default function AdminVolunteersPage() {
                     Automated reminders
                   </h3>
                   <p className="text-sm text-gray-text">
-                    Vercel checks reminders every hour. Admins can keep the default 24-hour and
-                    1-hour reminders, adjust the lead times, or run the check manually.
+                    Supabase checks every 10 minutes and sends reminders when confirmed volunteers
+                    enter the active reminder window.
                   </p>
                 </div>
                 <button
@@ -1401,260 +1378,245 @@ export default function AdminVolunteersPage() {
                 </button>
               </div>
 
-              {reminderResult && (
-                <div className="rounded-md border border-teal/20 bg-teal-light/40 px-4 py-3">
-                  <div className="flex items-center gap-2 text-charcoal">
-                    <CheckIcon className="w-4 h-4 text-teal" />
-                    <p className="text-sm font-medium">Reminder check completed</p>
+              <div className="grid grid-cols-2 gap-1 rounded-md border border-gray-border bg-gray-light p-1">
+                {[
+                  ['settings', 'Reminder settings'],
+                  ['messages', 'Messages'],
+                ].map(([view, label]) => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setReminderModalView(view as ReminderModalView)}
+                    className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
+                      reminderModalView === view
+                        ? 'bg-white text-charcoal shadow-sm'
+                        : 'text-gray-text hover:text-charcoal'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {reminderModalView === 'settings' && (
+                <>
+                  <div className="rounded-md border border-gray-border p-4">
+                    <label className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-charcoal">
+                          Enable automated reminders
+                        </p>
+                        <p className="text-xs text-gray-text">
+                          Turn all shift reminder automation on or off.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={reminderSettings.reminders_enabled}
+                        onChange={() => handleReminderToggle('reminders_enabled')}
+                        className="h-4 w-4"
+                      />
+                    </label>
                   </div>
-                  <p className="text-sm text-gray-text mt-1">
-                    {reminderResult.queued} queued, {reminderResult.sent} sent,{' '}
-                    {reminderResult.failed} failed, {reminderResult.skipped} skipped as already
-                    handled.
-                  </p>
-                  {reminderResult.queued === 0 && (
-                    <p className="text-sm text-gray-text mt-2">
-                      Nothing is due right now. Reminder checks only queue emails for confirmed
-                      volunteers whose shifts are within the active lead-time windows.
-                    </p>
-                  )}
-                </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-md border border-gray-border p-4">
+                      <label className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-sm font-medium text-charcoal">First reminder</p>
+                          <p className="text-xs text-gray-text">
+                            Defaults to 24 hours before the shift.
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={reminderSettings.reminder_24h_enabled}
+                          onChange={() => handleReminderToggle('reminder_24h_enabled')}
+                          className="h-4 w-4"
+                        />
+                      </label>
+                      <div>
+                        <label className="text-xs uppercase tracking-wide text-gray-text">
+                          Hours before shift
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={336}
+                          value={reminderSettings.reminder_24h_hours_before}
+                          onChange={(event) =>
+                            handleReminderNumberChange(
+                              'reminder_24h_hours_before',
+                              event.target.value
+                            )
+                          }
+                          className="input mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border border-gray-border p-4">
+                      <label className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <p className="text-sm font-medium text-charcoal">Second reminder</p>
+                          <p className="text-xs text-gray-text">
+                            Defaults to 1 hour before the shift.
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={reminderSettings.reminder_1h_enabled}
+                          onChange={() => handleReminderToggle('reminder_1h_enabled')}
+                          className="h-4 w-4"
+                        />
+                      </label>
+                      <div>
+                        <label className="text-xs uppercase tracking-wide text-gray-text">
+                          Hours before shift
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={336}
+                          value={reminderSettings.reminder_1h_hours_before}
+                          onChange={(event) =>
+                            handleReminderNumberChange(
+                              'reminder_1h_hours_before',
+                              event.target.value
+                            )
+                          }
+                          className="input mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
-              <div className="rounded-md border border-gray-border bg-gray-light px-4 py-3 text-sm text-gray-text">
-                Current timezone: <span className="font-medium text-charcoal">{reminderSettings.time_zone}</span>
-                <br />
-                Cron schedule: <span className="font-medium text-charcoal">hourly</span>
-                {reminderPreview && (
-                  <>
-                    <br />
-                    If the reminder check ran right now:
-                    <span className="font-medium text-charcoal">
-                      {' '}
-                      {reminderPreview.counts.reminder_24h.queued} first reminder
-                      {reminderPreview.counts.reminder_24h.queued === 1 ? '' : 's'} and{' '}
-                      {reminderPreview.counts.reminder_1h.queued} second reminder
-                      {reminderPreview.counts.reminder_1h.queued === 1 ? '' : 's'}
-                    </span>{' '}
-                    would be queued.
-                    {reminderPreview.counts.reminder_24h.queued === 0 &&
-                      reminderPreview.counts.reminder_1h.queued === 0 && (
-                        <>
-                          <br />
-                          No reminders are currently due for confirmed volunteers in the active
-                          send window.
-                        </>
-                      )}
-                  </>
-                )}
-              </div>
-
-              <div className="rounded-md border border-gray-border p-4">
-                <div className="mb-3">
-                  <p className="text-sm font-medium text-charcoal">Start-of-day message</p>
-                  <p className="text-xs text-gray-text">
-                    Queue a day-specific volunteer email now and have it send automatically at the
-                    start of that day in America/Denver.
-                  </p>
-                </div>
-
-                <div className="grid gap-3">
-                  <div>
-                    <label className="text-xs uppercase tracking-wide text-gray-text">Day</label>
-                    <select
-                      value={scheduledMessageDay}
-                      onChange={(event) => setScheduledMessageDay(event.target.value)}
-                      className="input mt-1"
-                    >
-                      {EVENT_DAYS.map((day) => {
-                        const count = getVolunteerIdsForDay(day.date).length
-                        return (
-                          <option key={day.date} value={day.date}>
-                            {day.label} ({count} scheduled)
-                          </option>
-                        )
-                      })}
-                    </select>
+              {reminderModalView === 'messages' && (
+                <div className="grid gap-4">
+                  <div className="rounded-md border border-gray-border p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-charcoal">Test reminder email</p>
+                        <p className="text-sm text-gray-text mt-1">
+                          Queue a sample reminder to your email. Supabase checks the email queue
+                          every 10 minutes, so it should send soon.
+                        </p>
+                        {testReminderNotice && (
+                          <p className="text-sm text-gray-text mt-3">{testReminderNotice}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleQueueTestReminder()}
+                        disabled={sendingTestReminder}
+                        className="bg-teal-500 text-white px-5 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {sendingTestReminder ? 'Queueing...' : 'Queue test email'}
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs uppercase tracking-wide text-gray-text">Subject</label>
-                    <input
-                      type="text"
-                      value={scheduledMessageSubject}
-                      onChange={(event) => setScheduledMessageSubject(event.target.value)}
-                      className="input mt-1"
-                      placeholder="Enter scheduled message subject"
-                    />
-                  </div>
+                  <div className="rounded-md border border-gray-border p-4">
+                    <div className="mb-3">
+                      <p className="text-sm font-medium text-charcoal">Start-of-day broadcast</p>
+                      <p className="text-sm text-gray-text">
+                        Queue a day-specific volunteer email now and have it send automatically at
+                        the start of that day in America/Denver.
+                      </p>
+                    </div>
 
-                  <div>
-                    <label className="text-xs uppercase tracking-wide text-gray-text">Message</label>
-                    <textarea
-                      value={scheduledMessageBody}
-                      onChange={(event) => setScheduledMessageBody(event.target.value)}
-                      className="input mt-1"
-                      rows={5}
-                      placeholder="Enter the message volunteers should receive at the start of the day..."
-                    />
-                  </div>
+                    <div className="grid gap-3">
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-gray-text">Day</label>
+                      <select
+                        value={scheduledMessageDay}
+                        onChange={(event) => setScheduledMessageDay(event.target.value)}
+                        className="input mt-1"
+                      >
+                        {EVENT_DAYS.map((day) => {
+                          const count = getVolunteerIdsForDay(day.date).length
+                          return (
+                            <option key={day.date} value={day.date}>
+                              {day.label} ({count} scheduled)
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </div>
 
-                  <p className="text-xs text-gray-text">
-                    This will go to{' '}
-                    <span className="font-medium text-charcoal">
-                      {getVolunteerIdsForDay(scheduledMessageDay).length}
-                    </span>{' '}
-                    volunteer{getVolunteerIdsForDay(scheduledMessageDay).length === 1 ? '' : 's'} currently scheduled that day.
-                  </p>
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-gray-text">
+                        Subject
+                      </label>
+                      <input
+                        type="text"
+                        value={scheduledMessageSubject}
+                        onChange={(event) => setScheduledMessageSubject(event.target.value)}
+                        className="input mt-1"
+                        placeholder="Enter scheduled message subject"
+                      />
+                    </div>
 
-                  {scheduledMessageNotice && (
-                    <p className="text-sm text-gray-text">{scheduledMessageNotice}</p>
-                  )}
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-gray-text">
+                        Message
+                      </label>
+                      <textarea
+                        value={scheduledMessageBody}
+                        onChange={(event) => setScheduledMessageBody(event.target.value)}
+                        className="input mt-1"
+                        rows={5}
+                        placeholder="Enter the message volunteers should receive at the start of the day..."
+                      />
+                    </div>
 
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => void handleScheduleStartOfDayMessage()}
-                      disabled={sendingScheduledMessage}
-                      className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {sendingScheduledMessage ? 'Scheduling...' : 'Schedule for Start of Day'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-gray-border p-4">
-                <label className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal">Enable automated reminders</p>
                     <p className="text-xs text-gray-text">
-                      Turn all shift reminder automation on or off.
+                      This will go to{' '}
+                      <span className="font-medium text-charcoal">
+                        {getVolunteerIdsForDay(scheduledMessageDay).length}
+                      </span>{' '}
+                      volunteer
+                      {getVolunteerIdsForDay(scheduledMessageDay).length === 1 ? '' : 's'} currently scheduled that day.
                     </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={reminderSettings.reminders_enabled}
-                    onChange={() => handleReminderToggle('reminders_enabled')}
-                    className="h-4 w-4"
-                  />
-                </label>
-              </div>
 
-              <div className="grid gap-4">
-                <div className="rounded-md border border-gray-border p-4">
-                  <label className="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-charcoal">First reminder</p>
-                      <p className="text-xs text-gray-text">
-                        Defaults to 24 hours before the shift.
-                      </p>
+                    {scheduledMessageNotice && (
+                      <p className="text-sm text-gray-text">{scheduledMessageNotice}</p>
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => void handleScheduleStartOfDayMessage()}
+                        disabled={sendingScheduledMessage}
+                        className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {sendingScheduledMessage ? 'Scheduling...' : 'Schedule message'}
+                      </button>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={reminderSettings.reminder_24h_enabled}
-                      onChange={() => handleReminderToggle('reminder_24h_enabled')}
-                      className="h-4 w-4"
-                    />
-                  </label>
-                  <div>
-                    <label className="text-xs uppercase tracking-wide text-gray-text">
-                      Hours before shift
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={336}
-                      value={reminderSettings.reminder_24h_hours_before}
-                      onChange={(event) =>
-                        handleReminderNumberChange(
-                          'reminder_24h_hours_before',
-                          event.target.value
-                        )
-                      }
-                      className="input mt-1"
-                    />
                   </div>
                 </div>
-
-                <div className="rounded-md border border-gray-border p-4">
-                  <label className="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-charcoal">Second reminder</p>
-                      <p className="text-xs text-gray-text">
-                        Defaults to 1 hour before the shift.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={reminderSettings.reminder_1h_enabled}
-                      onChange={() => handleReminderToggle('reminder_1h_enabled')}
-                      className="h-4 w-4"
-                    />
-                  </label>
-                  <div>
-                    <label className="text-xs uppercase tracking-wide text-gray-text">
-                      Hours before shift
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={336}
-                      value={reminderSettings.reminder_1h_hours_before}
-                      onChange={(event) =>
-                        handleReminderNumberChange(
-                          'reminder_1h_hours_before',
-                          event.target.value
-                        )
-                      }
-                      className="input mt-1"
-                    />
-                  </div>
                 </div>
-
-                <div className="rounded-md border border-gray-border p-4">
-                  <label className="text-xs uppercase tracking-wide text-gray-text">
-                    Reminder send window in minutes
-                  </label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={240}
-                    value={reminderSettings.send_window_minutes}
-                    onChange={(event) =>
-                      handleReminderNumberChange('send_window_minutes', event.target.value)
-                    }
-                    className="input mt-1"
-                  />
-                  <p className="text-xs text-gray-text mt-2">
-                    Keep this at 60 for the hourly cron unless you have a reason to widen the
-                    catch-up window.
-                  </p>
-                </div>
-              </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setReminderModal(false)}
                   className="btn-secondary"
-                  disabled={savingReminderSettings || sendingReminders}
+                  disabled={savingReminderSettings}
                 >
                   Close
                 </button>
-                <button
-                  onClick={handleSaveReminderSettings}
-                  disabled={savingReminderSettings || sendingReminders}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingReminderSettings ? 'Saving...' : 'Save settings'}
-                </button>
-                <button
-                  onClick={handleSendReminders}
-                  disabled={savingReminderSettings || sendingReminders}
-                  className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {sendingReminders ? 'Running...' : 'Run reminder check now'}
-                </button>
+                {reminderModalView === 'settings' && (
+                  <button
+                    onClick={handleSaveReminderSettings}
+                    disabled={savingReminderSettings}
+                    className="bg-teal-500 text-white px-6 py-2 rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingReminderSettings ? 'Saving...' : 'Save settings'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
