@@ -49,7 +49,7 @@ export async function GET() {
           address,
           total_slots,
           filled_slots,
-          urgent,
+          urgent
         )
       `
     )
