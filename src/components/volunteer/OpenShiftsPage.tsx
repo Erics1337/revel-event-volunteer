@@ -1145,7 +1145,6 @@ function ShiftCard({
   const open = Math.max(0, shift.total_slots - shift.filled_slots)
   const full = open === 0
   const roleDescription = ROLE_INFO[shift.role]
-  const notes = shift.notes?.trim()
   const description =
     roleDescription ||
     'Support the volunteer team and help this part of Boulder Startup Week run smoothly.'
@@ -1244,11 +1243,6 @@ function ShiftCard({
             ) : null}
           </a>
 
-          {notes ? (
-            <p className="mt-1.5 text-xs leading-5 text-[#806039]">
-              <span className="font-semibold">Note:</span> {notes}
-            </p>
-          ) : null}
         </div>
 
         <div className="flex items-start justify-start sm:justify-end">
