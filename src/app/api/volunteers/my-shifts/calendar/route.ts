@@ -36,7 +36,6 @@ function buildCalendarFile(
       end_time: string
       location: string
       address: string | null
-      notes: string | null
     } | null
   }>
 ) {
@@ -56,8 +55,7 @@ function buildCalendarFile(
           end_time: string
           location: string
           address: string | null
-          notes: string | null
-        }
+            }
       } => Boolean(assignment.shift)
     )
     .sort((left, right) => {
@@ -73,7 +71,6 @@ function buildCalendarFile(
           `Role: ${assignment.shift.role}`,
           `Location: ${assignment.shift.location}`,
           assignment.shift.address ? `Address: ${assignment.shift.address}` : null,
-          assignment.shift.notes ? `Notes: ${assignment.shift.notes}` : null,
         ]
           .filter(Boolean)
           .join('\n')
@@ -141,7 +138,6 @@ export async function GET() {
       end_time: string
       location: string
       address: string | null
-      notes: string | null
     } | null
   }> = []
 
@@ -158,8 +154,7 @@ export async function GET() {
             start_time,
             end_time,
             location,
-            address,
-            notes
+            address
           )
         `
       )

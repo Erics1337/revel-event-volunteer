@@ -50,7 +50,6 @@ export async function GET() {
           total_slots,
           filled_slots,
           urgent,
-          notes
         )
       `
     )

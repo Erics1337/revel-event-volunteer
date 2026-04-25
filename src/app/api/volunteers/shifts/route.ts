@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const { data: shifts, error } = await supabase
       .from('volunteer_shifts')
-      .select('*')
+      .select('id, role, day, start_time, end_time, location, address, total_slots, filled_slots, urgent')
       .order('day', { ascending: true })
 
     if (error) {
