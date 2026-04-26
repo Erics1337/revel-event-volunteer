@@ -807,22 +807,24 @@ export function OpenShiftsPage() {
                   <ClockIcon />
                   <span>{formatTimeLabel(confirmShift.start_time)} – {formatTimeLabel(confirmShift.end_time)}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <a
+                  href={getDirectionsHref(confirmShift)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group/location flex min-w-0 items-center gap-2 transition hover:text-[#4f9da2] focus:outline-none focus:ring-2 focus:ring-[#cde7e7]"
+                  aria-label={
+                    confirmShift.address
+                      ? `Open ${confirmShift.location}, ${confirmShift.address} in Google Maps`
+                      : `Open ${confirmShift.location} in Google Maps`
+                  }
+                >
                   <PinIcon />
-                  <span>
+                  <span className="min-w-0 underline-offset-2 group-hover/location:underline group-focus/location:underline">
                     {confirmShift.location}
                     {confirmShift.address ? `, ${confirmShift.address}` : ''}
                   </span>
-                </div>
+                </a>
               </div>
-              <a
-                href={getDirectionsHref(confirmShift)}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
-              >
-                Open directions
-              </a>
               <p className="mt-4 text-sm leading-6 text-[#6f7883]">
                 Ready to sign up for this shift? You can cancel later from your schedule.
               </p>
