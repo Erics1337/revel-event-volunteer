@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   if (error) return error
 
   try {
-    const body = await request.json().catch(() => ({}))
+    const body = (await request.json().catch(() => ({}))) as { shiftIds?: unknown }
     const shiftIds = Array.isArray(body.shiftIds)
       ? body.shiftIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
       : []

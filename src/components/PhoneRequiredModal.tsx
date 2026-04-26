@@ -86,8 +86,13 @@ function RequiredProfileModalBody({
           setSavedAvailability(nextAvailability)
           setAvailability(nextAvailability.length > 0 ? nextAvailability : DEFAULT_AVAILABILITY)
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : 'Could not load volunteer setup. Please try again.'
+          )
           setSavedAvailability([])
           setAvailability(DEFAULT_AVAILABILITY)
         }

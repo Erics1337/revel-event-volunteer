@@ -32,27 +32,7 @@ export async function GET() {
 
   const { data: assignments, error: assignmentsError } = await supabase
     .from('volunteer_assignments')
-    .select(
-      `
-        id,
-        shift_id,
-        volunteer_id,
-        assigned_at,
-        status,
-        shift:volunteer_shifts (
-          id,
-          role,
-          day,
-          start_time,
-          end_time,
-          location,
-          address,
-          total_slots,
-          filled_slots,
-          urgent
-        )
-      `
-    )
+    .select('id, shift_id, volunteer_id, assigned_at, status')
     .eq('volunteer_id', volunteer.id)
     .in('status', ['requested', 'assigned'])
     .order('assigned_at', { ascending: true })
@@ -61,13 +41,38 @@ export async function GET() {
     return NextResponse.json({ error: assignmentsError.message }, { status: 500 })
   }
 
+  const shiftIds = Array.from(
+    new Set(
+      (assignments ?? [])
+        .map((assignment) => assignment.shift_id)
+        .filter((shiftId): shiftId is string => typeof shiftId === 'string')
+    )
+  )
+
+  const { data: shifts, error: shiftsError } = shiftIds.length
+    ? await supabase
+        .from('volunteer_shifts')
+        .select('id, role, day, start_time, end_time, location, address, total_slots, filled_slots, urgent')
+        .in('id', shiftIds)
+    : { data: [], error: null }
+
+  if (shiftsError) {
+    return NextResponse.json({ error: shiftsError.message }, { status: 500 })
+  }
+
+  const shiftById = new Map((shifts ?? []).map((shift) => [shift.id, shift]))
+  const assignmentsWithShifts = (assignments ?? []).map((assignment) => ({
+    ...assignment,
+    shift: assignment.shift_id ? shiftById.get(assignment.shift_id) ?? null : null,
+  }))
+
   return NextResponse.json({
     volunteer: {
       ...volunteer,
       availability: volunteer.availability ?? [],
       shift_count: volunteer.shift_count ?? 0,
     },
-    assignments: assignments ?? [],
+    assignments: assignmentsWithShifts,
   })
 }
 
