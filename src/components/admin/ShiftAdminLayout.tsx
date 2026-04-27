@@ -12,6 +12,7 @@ interface ShiftAdminLayoutProps {
 
 const NAV_ITEMS = [
   { href: '/admin/shifts', label: 'Spreadsheet' },
+  { href: '/admin/shifts/list', label: 'List' },
   { href: '/admin/shifts/calendar', label: 'Calendar' },
 ]
 

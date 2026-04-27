@@ -373,8 +373,7 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
           currentRole={row.role}
           availableRoles={availableRoles}
           onSelectRole={(nextRole) => onRowChange('role', nextRole)}
-          className={`${inputClassName} min-w-[220px] text-left`}
-          actionLabel={null}
+          className={`${inputClassName} min-w-[220px] text-left flex items-center justify-between gap-3`}
         />
       </td>
       <td className="min-w-[240px] px-3 py-3">

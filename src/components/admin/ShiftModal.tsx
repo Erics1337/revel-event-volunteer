@@ -201,6 +201,139 @@ export function ShiftModal({
             </div>
           ) : null}
 
+          {mode === 'edit' && (
+            <div className="mb-5 rounded-xl border border-gray-border bg-gray-light/40 p-4">
+              <h3 className="mb-2 text-sm font-semibold text-charcoal">
+                Assigned Volunteers ({assignments.length})
+              </h3>
+              {assignments.length === 0 ? (
+                <p className="text-sm text-gray-text italic">None assigned yet.</p>
+              ) : (
+                <ul className="mb-3 space-y-2">
+                  {assignments.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between rounded-md bg-white px-3 py-2 shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-charcoal">
+                          {a.volunteer?.name ?? 'Unknown'}
+                        </p>
+                        <p className="truncate text-xs text-gray-text">{a.volunteer?.email}</p>
+                      </div>
+                      {onUnassign && a.volunteer && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              setMessage(null)
+                              await onUnassign(a.volunteer!.id)
+                              setMessage(`Removed ${a.volunteer!.name} from shift.`)
+                            } catch (error) {
+                              setMessage(
+                                error instanceof Error ? error.message : 'Failed to remove volunteer'
+                              )
+                            }
+                          }}
+                          className="ml-2 shrink-0 text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {onAssign ? (
+                filteredVolunteers.length > 0 || unassignedVolunteers.length > 0 ? (
+                  <div className="space-y-2">
+                    <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
+                      <Popover.Anchor asChild>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={volunteerSearch}
+                            onFocus={() => setPickerOpen(true)}
+                            onChange={(event) => {
+                              setVolunteerSearch(event.target.value)
+                              setPickerOpen(true)
+                            }}
+                            className={`${inputClassName} pr-20`}
+                            placeholder="Search volunteers to assign"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPickerOpen((current) => !current)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-gray-border px-2 py-1 text-[11px] font-medium text-teal"
+                          >
+                            Search
+                          </button>
+                        </div>
+                      </Popover.Anchor>
+                      <Popover.Portal>
+                        <Popover.Content
+                          sideOffset={8}
+                          align="start"
+                          onOpenAutoFocus={(event) => event.preventDefault()}
+                          className="z-50 w-[360px] rounded-xl border border-gray-border bg-white p-3 shadow-xl"
+                        >
+                          <div className="mb-2">
+                            <div className="text-xs font-medium uppercase tracking-wide text-gray-text">
+                              Volunteer Picker
+                            </div>
+                            <p className="text-sm text-gray-text">
+                              Search and assign a volunteer to this shift.
+                            </p>
+                          </div>
+                          <Command className="w-full">
+                            <Command.List className="max-h-64 overflow-y-auto rounded-lg border border-gray-border p-1">
+                              <Command.Empty className="px-3 py-4 text-sm text-gray-text">
+                                No matching volunteers for this shift.
+                              </Command.Empty>
+                              {filteredVolunteers.map((volunteer) => (
+                                <Command.Item
+                                  key={volunteer.id}
+                                  value={`${volunteer.name} ${volunteer.email} ${volunteer.phone}`}
+                                  onSelect={() => void handleAssign(volunteer.id)}
+                                  className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 truncate font-medium text-charcoal">
+                                      <span className="truncate">{volunteer.name}</span>
+                                      {volunteer.availability.includes(day) ? (
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                          Available
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                          Outside availability
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="truncate text-xs text-gray-text">
+                                      {volunteer.email} · {volunteer.phone}
+                                    </div>
+                                  </div>
+                                </Command.Item>
+                              ))}
+                            </Command.List>
+                          </Command>
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
+                    {assignmentBusyId ? (
+                      <p className="text-xs text-gray-text">Assigning volunteer…</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-text italic">
+                    All confirmed volunteers are already assigned.
+                  </p>
+                )
+              ) : null}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-charcoal mb-1">Role</label>
@@ -332,136 +465,6 @@ export function ShiftModal({
             </div>
           </form>
 
-          {mode === 'edit' && (
-            <div className="mt-6 pt-6 border-t border-gray-border">
-              <h3 className="text-sm font-semibold text-charcoal mb-3">
-                Assigned Volunteers ({assignments.length})
-              </h3>
-              {assignments.length === 0 ? (
-                <p className="text-sm text-gray-text italic">None assigned yet.</p>
-              ) : (
-                <ul className="space-y-2 mb-3">
-                  {assignments.map((a) => (
-                    <li
-                      key={a.id}
-                      className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-charcoal truncate">
-                          {a.volunteer?.name ?? 'Unknown'}
-                        </p>
-                        <p className="text-xs text-gray-text truncate">
-                          {a.volunteer?.email}
-                        </p>
-                      </div>
-                      {onUnassign && a.volunteer && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              setMessage(null)
-                              await onUnassign(a.volunteer!.id)
-                              setMessage(`Removed ${a.volunteer!.name} from shift.`)
-                            } catch (error) {
-                              setMessage(error instanceof Error ? error.message : 'Failed to remove volunteer')
-                            }
-                          }}
-                          className="text-xs text-red-600 hover:text-red-700 ml-2 shrink-0"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {onAssign ? (
-                filteredVolunteers.length > 0 || unassignedVolunteers.length > 0 ? (
-                  <div className="space-y-2">
-                    <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
-                      <Popover.Anchor asChild>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={volunteerSearch}
-                            onFocus={() => setPickerOpen(true)}
-                            onChange={(event) => {
-                              setVolunteerSearch(event.target.value)
-                              setPickerOpen(true)
-                            }}
-                            className={`${inputClassName} pr-20`}
-                            placeholder="Search volunteers to assign"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setPickerOpen((current) => !current)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-gray-border px-2 py-1 text-[11px] font-medium text-teal"
-                          >
-                            Search
-                          </button>
-                        </div>
-                      </Popover.Anchor>
-                      <Popover.Portal>
-                        <Popover.Content
-                          sideOffset={8}
-                          align="start"
-                          onOpenAutoFocus={(event) => event.preventDefault()}
-                          className="z-50 w-[360px] rounded-xl border border-gray-border bg-white p-3 shadow-xl"
-                        >
-                          <div className="mb-2">
-                            <div className="text-xs font-medium uppercase tracking-wide text-gray-text">
-                              Volunteer Picker
-                            </div>
-                            <p className="text-sm text-gray-text">
-                              Search and assign a volunteer to this shift.
-                            </p>
-                          </div>
-                          <Command className="w-full">
-                            <Command.List className="max-h-64 overflow-y-auto rounded-lg border border-gray-border p-1">
-                              <Command.Empty className="px-3 py-4 text-sm text-gray-text">
-                                No matching volunteers for this shift.
-                              </Command.Empty>
-                              {filteredVolunteers.map((volunteer) => (
-                                <Command.Item
-                                  key={volunteer.id}
-                                  value={`${volunteer.name} ${volunteer.email} ${volunteer.phone}`}
-                                  onSelect={() => void handleAssign(volunteer.id)}
-                                  className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 truncate font-medium text-charcoal">
-                                      <span className="truncate">{volunteer.name}</span>
-                                      {volunteer.availability.includes(day) ? (
-                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                                          Available
-                                        </span>
-                                      ) : (
-                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                                          Outside availability
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="truncate text-xs text-gray-text">
-                                      {volunteer.email} · {volunteer.phone}
-                                    </div>
-                                  </div>
-                                </Command.Item>
-                              ))}
-                            </Command.List>
-                          </Command>
-                        </Popover.Content>
-                      </Popover.Portal>
-                    </Popover.Root>
-                    {assignmentBusyId ? (
-                      <p className="text-xs text-gray-text">Assigning volunteer…</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-text italic">All confirmed volunteers are already assigned.</p>
-                )
-              ) : null}
-            </div>
-          )}
         </div>
       </div>
     </div>

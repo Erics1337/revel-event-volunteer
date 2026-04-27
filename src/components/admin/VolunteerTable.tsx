@@ -109,7 +109,7 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
             <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Volunteer</th>
             <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text hidden sm:table-cell">Phone</th>
             <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text hidden md:table-cell">Available</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Signed up</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Shifts</th>
             <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Account status</th>
           </tr>
         </thead>

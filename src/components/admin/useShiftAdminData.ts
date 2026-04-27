@@ -191,6 +191,60 @@ export function useShiftAdminData() {
     [refresh]
   )
 
+  const deleteVenue = useCallback(
+    async (id: string, replacementLocation?: string) => {
+      const response = await fetch(`/api/admin/venues/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replacementLocation: replacementLocation ?? '' }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to delete venue')
+      }
+
+      await refresh()
+    },
+    [refresh]
+  )
+
+  const renameRole = useCallback(
+    async (oldRole: string, newRole: string) => {
+      const response = await fetch('/api/admin/shifts/role', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldRole, newRole }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to rename role')
+      }
+
+      await refresh()
+    },
+    [refresh]
+  )
+
+  const deleteRole = useCallback(
+    async (role: string, replacementRole: string) => {
+      const response = await fetch('/api/admin/shifts/role', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, replacementRole }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to delete role')
+      }
+
+      await refresh()
+    },
+    [refresh]
+  )
+
   const assignVolunteer = useCallback(async (
     shiftId: string,
     volunteerId: string | null,
@@ -239,6 +293,9 @@ export function useShiftAdminData() {
     importFile,
     createVenue,
     updateVenue,
+    deleteVenue,
+    renameRole,
+    deleteRole,
     assignVolunteer,
     unassignVolunteer,
   }
