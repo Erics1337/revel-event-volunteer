@@ -49,8 +49,6 @@ const IMPACT_STATS = [
 ] as const
 
 const PUBLIC_NAV_LINKS = [
-  { href: '#why-volunteer', label: 'Why Volunteer' },
-  { href: '#how-it-works', label: 'How It Works' },
   { href: '/open-shifts', label: 'Open Shifts' },
 ] as const
 
