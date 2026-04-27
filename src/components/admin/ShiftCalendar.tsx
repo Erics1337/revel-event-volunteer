@@ -62,7 +62,7 @@ export function ShiftCalendar({
 
   const events: EventInput[] = shifts.map((shift) => {
     const shiftAssignments = assignments.filter((a) => a.shift_id === shift.id)
-    const filled = shift.filled_slots ?? shiftAssignments.length
+    const filled = shiftAssignments.length > 0 ? shiftAssignments.length : (shift.filled_slots ?? 0)
     const isFull = filled >= shift.total_slots
     return {
       id: shift.id,
