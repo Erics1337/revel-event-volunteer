@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { MailIcon } from '@/components/icons/MailIcon'
 
-const BADGE_OPTIONS = ['facilitator', 'volunteer', 'sponsor']
 
 interface Volunteer {
   id: string
@@ -19,48 +18,60 @@ interface Volunteer {
   blocked: boolean
 }
 
+interface ShiftRow {
+  id: string
+  role: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+}
+
+interface AssignmentRow {
+  id: string
+  shift_id: string
+  volunteer_id: string
+}
+
 interface VolunteerTableProps {
   volunteers: Volunteer[]
   availableDays: Array<{ date: string; label: string }>
   onMessageVolunteer: (volunteerId: string) => void
   onRefresh?: () => void
+  assignments?: AssignmentRow[]
+  shifts?: ShiftRow[]
 }
 
-export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, onRefresh }: VolunteerTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<Record<string, { role: string; badges: string[]; blocked: boolean }>>({})
+function formatTime(t: string) {
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const h12 = h % 12 || 12
+  return m === '00' ? `${h12}${ampm}` : `${h12}:${m}${ampm}`
+}
+
+function formatDay(dateStr: string, availableDays: Array<{ date: string; label: string }>) {
+  return availableDays.find((d) => d.date === dateStr)?.label ?? dateStr
+}
+
+export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, onRefresh, assignments = [], shifts = [] }: VolunteerTableProps) {
+  const [selectedShiftsVolunteerId, setSelectedShiftsVolunteerId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
-  const handleToggleExpand = (volunteer: Volunteer) => {
-    if (expandedId === volunteer.id) {
-      setExpandedId(null)
-    } else {
-      setExpandedId(volunteer.id)
-      setDrafts((current) => ({
-        ...current,
-        [volunteer.id]: {
-          role: volunteer.role || 'volunteer',
-          badges: volunteer.badges || [],
-          blocked: volunteer.blocked || false,
-        },
-      }))
-    }
+  const getVolunteerShifts = (volunteerId: string): ShiftRow[] => {
+    const shiftIds = new Set(
+      assignments.filter((a) => a.volunteer_id === volunteerId).map((a) => a.shift_id)
+    )
+    return shifts
+      .filter((s) => shiftIds.has(s.id))
+      .sort((a, b) => a.day.localeCompare(b.day) || a.start_time.localeCompare(b.start_time))
   }
 
-  const updateDraft = (userId: string, updater: (current: { role: string; badges: string[]; blocked: boolean }) => { role: string; badges: string[]; blocked: boolean }) => {
-    setDrafts((current) => ({
-      ...current,
-      [userId]: updater(current[userId]),
-    }))
-  }
-
-  const saveUser = async (volunteer: Volunteer) => {
-    const draft = drafts[volunteer.id]
-    if (!draft || !volunteer.user_id) return
+  const updateRole = async (volunteer: Volunteer, role: string) => {
+    if (!volunteer.user_id || role === volunteer.role) return
 
     setSavingId(volunteer.id)
-    setError(null)
 
     try {
       const response = await fetch('/api/admin/users', {
@@ -70,64 +81,61 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
         },
         body: JSON.stringify({
           id: volunteer.user_id,
-          role: draft.role,
-          badges: draft.badges,
-          blocked: draft.blocked,
+          role,
+          badges: volunteer.badges || [],
+          blocked: volunteer.blocked || false,
         }),
       })
 
       if (!response.ok) {
         const payload = await response.json()
-        throw new Error(payload.error || 'Failed to update user')
+        throw new Error(payload.error || 'Failed to update role')
       }
 
-      setExpandedId(null)
       if (onRefresh) {
         onRefresh()
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user')
     } finally {
       setSavingId(null)
     }
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-gray-border bg-white">
+    <div className="overflow-hidden rounded-2xl border border-gray-border bg-white shadow-sm">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-border bg-gray-light">
-            <th className="text-left px-4 py-3 font-semibold text-charcoal">Name</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal">Email</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal hidden sm:table-cell">Phone</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal hidden md:table-cell">Availability</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal">Shifts</th>
-            <th className="text-left px-4 py-3 font-semibold text-charcoal">Account</th>
-            <th className="px-4 py-3" />
+          <tr className="border-b border-gray-border bg-gray-light/70">
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Volunteer</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text hidden sm:table-cell">Phone</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text hidden md:table-cell">Available</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Signed up</th>
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-text">Account status</th>
           </tr>
         </thead>
         <tbody>
           {volunteers.map((volunteer, i) => {
-            const isExpanded = expandedId === volunteer.id
-            const draft = drafts[volunteer.id]
-
             return (
               <React.Fragment key={volunteer.id}>
                 <tr
-                  className={`border-b border-gray-border last:border-0 hover:bg-gray-light transition-colors ${
+                  className={`border-b border-gray-border last:border-0 hover:bg-teal-50/40 transition-colors ${
                     i % 2 === 0 ? '' : 'bg-gray-light/50'
                   }`}
                 >
-                  <td className="px-4 py-3 font-medium text-charcoal whitespace-nowrap">
-                    {volunteer.name}
-                    {volunteer.blocked && <span className="ml-2 text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-pill">Blocked</span>}
+                  <td className="px-5 py-4">
+                    <div className="flex flex-col">
+                      <div className="font-semibold text-charcoal">
+                        {volunteer.name}
+                        {volunteer.blocked && <span className="ml-2 text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-pill">Blocked</span>}
+                      </div>
+                      <span className="text-xs text-gray-text">{volunteer.email}</span>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-text">{volunteer.email}</td>
-                  <td className="px-4 py-3 text-gray-text hidden sm:table-cell whitespace-nowrap">
+                  <td className="px-5 py-4 text-gray-text hidden sm:table-cell whitespace-nowrap">
                     {volunteer.phone}
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell">
-                    <div className="flex gap-1 flex-wrap">
+                  <td className="px-5 py-4 hidden md:table-cell">
+                    <div className="flex max-w-xs gap-1.5 flex-wrap">
                       {availableDays
                         .filter((d) => volunteer.availability.includes(d.date))
                         .map((day) => (
@@ -135,38 +143,45 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
                             key={day.date}
                             className="text-xs px-2 py-0.5 bg-teal-light text-teal rounded-pill font-medium"
                           >
-                            {day.label}
+                            {day.label.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s*/, '')}
                           </span>
                         ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-charcoal">
-                    {volunteer.shift_count}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-pill font-medium ${
-                        volunteer.user_id
-                          ? 'bg-teal-light text-teal'
-                          : 'bg-gray-light text-gray-text'
-                      }`}
-                    >
-                      {volunteer.user_id ? 'Linked' : 'No account'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
+                  <td className="px-5 py-4">
+                    {volunteer.shift_count > 0 ? (
                       <button
-                        onClick={() => handleToggleExpand(volunteer)}
-                        className="text-xs text-charcoal hover:underline"
-                        disabled={!volunteer.user_id}
-                        title={!volunteer.user_id ? "No user account linked" : "Manage access settings"}
+                        onClick={() => setSelectedShiftsVolunteerId(volunteer.id)}
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          selectedShiftsVolunteerId === volunteer.id
+                            ? 'bg-teal-500 text-white'
+                            : 'bg-teal-light text-teal hover:bg-teal-500 hover:text-white'
+                        }`}
                       >
-                        {isExpanded ? 'Cancel' : 'Manage'}
+                        View {volunteer.shift_count} shift{volunteer.shift_count === 1 ? '' : 's'}
                       </button>
+                    ) : (
+                      <span className="rounded-full bg-gray-light px-3 py-1.5 text-xs font-semibold text-gray-text">No shifts</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      {volunteer.user_id ? (
+                        <select
+                          value={volunteer.role || 'volunteer'}
+                          onChange={(event) => void updateRole(volunteer, event.target.value)}
+                          disabled={savingId === volunteer.id}
+                          className="rounded-full border border-gray-border bg-white px-3 py-1.5 text-xs font-semibold text-charcoal disabled:opacity-50"
+                        >
+                          <option value="volunteer">Volunteer</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span className="rounded-full bg-gray-light px-3 py-1.5 text-xs font-semibold text-gray-text">No account</span>
+                      )}
                       <button
                         onClick={() => onMessageVolunteer(volunteer.id)}
-                        className="text-xs text-teal hover:underline flex items-center gap-1"
+                        className="text-xs font-semibold text-teal hover:text-teal-700 flex items-center gap-1"
                       >
                         <MailIcon className="w-3 h-3" />
                         Message
@@ -174,94 +189,84 @@ export function VolunteerTable({ volunteers, availableDays, onMessageVolunteer, 
                     </div>
                   </td>
                 </tr>
-                {isExpanded && draft && (
-                  <tr className="bg-gray-50 border-b border-gray-border">
-                    <td colSpan={7} className="px-4 py-4">
-                      <div className="flex flex-col gap-4 max-w-4xl bg-white p-4 rounded-xl border border-gray-border">
-                        <div className="flex flex-wrap gap-6 items-start">
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-medium text-charcoal">Role</span>
-                            <select
-                              value={draft.role}
-                              onChange={(event) =>
-                                updateDraft(volunteer.id, (current) => ({
-                                  ...current,
-                                  role: event.target.value,
-                                }))
-                              }
-                              className="input max-w-xs"
-                            >
-                              <option value="volunteer">Volunteer</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          </label>
-
-                          <div>
-                            <span className="mb-2 block text-sm font-medium text-charcoal">Badges</span>
-                            <div className="flex flex-wrap gap-2">
-                              {BADGE_OPTIONS.map((badge) => {
-                                const selected = draft.badges.includes(badge)
-                                return (
-                                  <button
-                                    key={badge}
-                                    type="button"
-                                    onClick={() =>
-                                      updateDraft(volunteer.id, (current) => ({
-                                        ...current,
-                                        badges: selected
-                                          ? current.badges.filter((value: string) => value !== badge)
-                                          : [...current.badges, badge],
-                                      }))
-                                    }
-                                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                                      selected
-                                        ? 'border-teal-500 bg-teal-500 text-white'
-                                        : 'border-gray-border text-charcoal hover:border-teal-300 hover:text-teal-700'
-                                    }`}
-                                  >
-                                    {badge}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-
-                          <label className="flex items-center justify-between rounded-xl border border-gray-border px-4 py-2 mt-auto">
-                            <span className="text-sm font-medium text-charcoal mr-3">Blocked</span>
-                            <input
-                              type="checkbox"
-                              checked={draft.blocked}
-                              onChange={(event) =>
-                                updateDraft(volunteer.id, (current) => ({
-                                  ...current,
-                                  blocked: event.target.checked,
-                                }))
-                              }
-                              className="h-4 w-4 accent-teal-600"
-                            />
-                          </label>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-2 pt-4 border-t border-gray-100">
-                          <span className="text-sm text-red-600 font-medium">{error}</span>
-                          <button
-                            type="button"
-                            onClick={() => saveUser(volunteer)}
-                            disabled={savingId === volunteer.id}
-                            className="rounded-full bg-charcoal px-5 py-2 text-sm font-medium text-white disabled:opacity-50 ml-auto"
-                          >
-                            {savingId === volunteer.id ? 'Saving...' : 'Save Settings'}
-                          </button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </React.Fragment>
             )
           })}
         </tbody>
       </table>
+      </div>
+
+
+
+      {selectedShiftsVolunteerId && (() => {
+        const volunteer = volunteers.find((v) => v.id === selectedShiftsVolunteerId)
+        if (!volunteer) return null
+        const volunteerShifts = getVolunteerShifts(volunteer.id)
+        const byDay = volunteerShifts.reduce<Record<string, ShiftRow[]>>((acc, s) => {
+          ;(acc[s.day] ??= []).push(s)
+          return acc
+        }, {})
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
+            onClick={() => setSelectedShiftsVolunteerId(null)}
+          >
+            <div
+              className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-gray-border p-5">
+                <div>
+                  <p className="text-lg font-semibold text-charcoal">{volunteer.name}&rsquo;s shift schedule</p>
+                  <p className="mt-1 text-sm text-gray-text">{volunteerShifts.length} assigned shift{volunteerShifts.length === 1 ? '' : 's'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedShiftsVolunteerId(null)}
+                  className="rounded-full px-3 py-1 text-sm font-semibold text-gray-text hover:bg-gray-light hover:text-charcoal"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="max-h-[70vh] overflow-y-auto p-5">
+                {volunteerShifts.length === 0 ? (
+                  <p className="rounded-xl bg-gray-light p-4 text-sm text-gray-text">No shifts assigned.</p>
+                ) : (
+                  <div className="space-y-5">
+                    {Object.entries(byDay)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([day, dayShifts]) => (
+                        <div key={day}>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-teal">
+                            {formatDay(day, availableDays)}
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {dayShifts.map((s) => (
+                              <div
+                                key={s.id}
+                                className="flex items-start gap-3 rounded-xl border border-gray-border bg-gray-light/40 px-4 py-3"
+                              >
+                                <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-teal-500 shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-charcoal leading-tight">{s.role}</p>
+                                  <p className="mt-1 text-xs text-gray-text leading-tight">
+                                    {formatTime(s.start_time)}–{formatTime(s.end_time)} · {s.location}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {volunteers.length === 0 && (
         <p className="text-center text-gray-text py-10 text-sm">

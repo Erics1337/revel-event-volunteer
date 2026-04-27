@@ -55,6 +55,9 @@ export default function AdminVolunteersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [coveredShiftSearch, setCoveredShiftSearch] = useState('')
+  const [volunteerSort, setVolunteerSort] = useState<'name' | 'most_shifts' | 'fewest_shifts'>('name')
+  const [volunteerDayFilter, setVolunteerDayFilter] = useState<string[]>([])
+  const [volunteerShiftFilter, setVolunteerShiftFilter] = useState<'all' | 'with_shifts' | 'no_shifts'>('all')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [shiftFilters, setShiftFilters] = useState({
@@ -208,14 +211,34 @@ export default function AdminVolunteersPage() {
     [volunteers, search]
   )
 
-  const tableVolunteers = useMemo(
-    () =>
-      filteredVolunteers.map((volunteer) => ({
-        ...volunteer,
-        status: volunteer.status === 'confirmed' ? 'confirmed' : 'pending',
-      })),
-    [filteredVolunteers]
-  )
+  const tableVolunteers = useMemo(() => {
+    let result = filteredVolunteers.map((volunteer) => ({
+      ...volunteer,
+      status: volunteer.status === 'confirmed' ? 'confirmed' : 'pending',
+    }))
+
+    if (volunteerShiftFilter === 'with_shifts') {
+      result = result.filter((v) => v.shift_count > 0)
+    } else if (volunteerShiftFilter === 'no_shifts') {
+      result = result.filter((v) => v.shift_count === 0)
+    }
+
+    if (volunteerDayFilter.length > 0) {
+      result = result.filter((v) =>
+        volunteerDayFilter.some((day) => v.availability.includes(day))
+      )
+    }
+
+    if (volunteerSort === 'most_shifts') {
+      result = [...result].sort((a, b) => b.shift_count - a.shift_count || a.name.localeCompare(b.name))
+    } else if (volunteerSort === 'fewest_shifts') {
+      result = [...result].sort((a, b) => a.shift_count - b.shift_count || a.name.localeCompare(b.name))
+    } else {
+      result = [...result].sort((a, b) => a.name.localeCompare(b.name))
+    }
+
+    return result
+  }, [filteredVolunteers, volunteerSort, volunteerDayFilter, volunteerShiftFilter])
 
   const confirmedVolunteers = useMemo(
     () => volunteers.filter((volunteer) => volunteer.status === 'confirmed'),
@@ -990,14 +1013,111 @@ export default function AdminVolunteersPage() {
 
         {activeTab === 'volunteers' && (
           <div>
-            <div className="relative mb-4">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-mid" />
-              <input
-                className="input input-icon"
-                placeholder="Search by name, email, or phone..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
+            <div className="mb-5 rounded-2xl border border-gray-border bg-white p-4 shadow-sm">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-text">
+                    Find a volunteer
+                  </label>
+                  <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-mid" />
+                  <input
+                    className="input input-icon w-full"
+                    placeholder="Search by name, email, or phone..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-text">
+                    Sort list
+                  </label>
+                <select
+                  value={volunteerSort}
+                  onChange={(e) => setVolunteerSort(e.target.value as typeof volunteerSort)}
+                    className="input min-w-44 py-2 pr-8 text-sm"
+                >
+                    <option value="name">Name A–Z</option>
+                    <option value="most_shifts">Most shifts first</option>
+                    <option value="fewest_shifts">Fewest shifts first</option>
+                </select>
+              </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 border-t border-gray-border pt-4 lg:grid-cols-[auto_1fr_auto] lg:items-start">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-text">
+                    Show volunteers
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                {(['all', 'with_shifts', 'no_shifts'] as const).map((val) => {
+                      const labels = { all: 'Everyone', with_shifts: 'Assigned', no_shifts: 'Unassigned' }
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setVolunteerShiftFilter(val)}
+                          className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                        volunteerShiftFilter === val
+                          ? 'border-teal-500 bg-teal-500 text-white'
+                              : 'border-gray-border bg-white text-charcoal hover:border-teal-300 hover:text-teal'
+                      }`}
+                    >
+                      {labels[val]}
+                    </button>
+                  )
+                })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-text">
+                    Available on
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                {EVENT_DAYS.map((day) => (
+                  <button
+                    key={day.date}
+                    type="button"
+                    onClick={() =>
+                      setVolunteerDayFilter((current) =>
+                        current.includes(day.date)
+                          ? current.filter((d) => d !== day.date)
+                          : [...current, day.date]
+                      )
+                    }
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                      volunteerDayFilter.includes(day.date)
+                        ? 'border-teal-500 bg-teal-500 text-white'
+                            : 'border-gray-border bg-white text-charcoal hover:border-teal-300 hover:text-teal'
+                    }`}
+                  >
+                    {day.label.replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s*/, '')}
+                  </button>
+                ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 lg:flex-col lg:items-end">
+                  <span className="rounded-full bg-gray-light px-3 py-1.5 text-xs font-semibold text-gray-text">
+                    Showing {tableVolunteers.length} of {volunteers.length}
+                  </span>
+                {(volunteerDayFilter.length > 0 || volunteerShiftFilter !== 'all' || search) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVolunteerDayFilter([])
+                      setVolunteerShiftFilter('all')
+                      setSearch('')
+                    }}
+                      className="text-xs font-semibold text-teal underline underline-offset-2 hover:text-teal-700 transition-colors"
+                  >
+                      Clear filters
+                  </button>
+                )}
+                </div>
+              </div>
             </div>
 
             <VolunteerTable
@@ -1007,6 +1127,8 @@ export default function AdminVolunteersPage() {
                 setMessageModal({ kind: 'volunteer', volunteerId })
               }
               onRefresh={refresh}
+              assignments={assignments}
+              shifts={shifts}
             />
           </div>
         )}
