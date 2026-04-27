@@ -176,6 +176,8 @@ export function sanitizeShiftInput(
   const address = normalizeOptionalText(input.address) ?? (location in VENUE_ADDRESSES ? VENUE_ADDRESSES[location as keyof typeof VENUE_ADDRESSES] : null)
   const urgent = normalizeBoolean(input.urgent)
   const notes = normalizeOptionalText(input.notes)
+  const rawSlots = Number(input.total_slots ?? 1)
+  const total_slots = Number.isFinite(rawSlots) && rawSlots >= 1 ? Math.min(Math.floor(rawSlots), 100) : 1
 
   if (!role) {
     return { error: `${label}: role is required` }
@@ -206,7 +208,7 @@ export function sanitizeShiftInput(
       end_time: end,
       location,
       address,
-      total_slots: 1,
+      total_slots,
       urgent,
       notes,
     },
@@ -289,6 +291,9 @@ export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[];
     const end = getCell(row, 'shift_end')
     const urgent = getCell(row, 'urgent')
     const notes = getCell(row, 'notes')
+    const slotsRaw = getCell(row, 'slots', 'total_slots', 'volunteers_needed')
+    const slotsParsed = slotsRaw ? Number(slotsRaw) : NaN
+    const total_slots = Number.isFinite(slotsParsed) && slotsParsed >= 1 ? slotsParsed : 1
 
     const normalized = sanitizeShiftInput(
       {
@@ -298,7 +303,7 @@ export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[];
         address,
         start_time: start,
         end_time: end,
-        total_slots: 1,
+        total_slots,
         urgent: normalizeBoolean(urgent),
         notes,
       },

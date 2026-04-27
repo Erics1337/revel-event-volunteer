@@ -100,7 +100,7 @@ function toEditableShift(shift: VolunteerShift): SpreadsheetRow {
     end_time: shift.end_time.slice(0, 5),
     location: shift.location,
     address: shift.address ?? VENUE_ADDRESSES[shift.location as keyof typeof VENUE_ADDRESSES] ?? '',
-    total_slots: 1,
+    total_slots: typeof shift.total_slots === 'number' && shift.total_slots >= 1 ? shift.total_slots : 1,
     urgent: Boolean(shift.urgent),
     notes: shift.notes ?? '',
   }
@@ -537,6 +537,29 @@ const SpreadsheetTableRow = memo(function SpreadsheetTableRow({
         />
       </td>
       <td className="px-3 py-3">
+        <div className="flex flex-col gap-1 min-w-[90px]">
+          <input
+            type="number"
+            min={Math.max(1, assignments.length)}
+            max={100}
+            value={row.total_slots}
+            onChange={(event) => {
+              const next = Number(event.target.value)
+              const minSlots = Math.max(1, assignments.length)
+              if (Number.isFinite(next) && next >= minSlots) {
+                onRowChange('total_slots', Math.max(minSlots, Math.floor(next)))
+              }
+            }}
+            className={`${inputClassName} text-center`}
+          />
+          {assignments.length > 0 ? (
+            <span className="text-[10px] text-gray-text text-center">
+              {assignments.length}/{row.total_slots} filled
+            </span>
+          ) : null}
+        </div>
+      </td>
+      <td className="px-3 py-3">
         <label className="flex min-w-[110px] cursor-pointer items-center gap-2 rounded-md border border-orange-100 bg-orange-50/70 px-3 py-2 text-sm font-medium text-charcoal">
           <input
             type="checkbox"
@@ -681,7 +704,7 @@ export function ShiftSpreadsheet({
         end_time: row.end_time,
         location: row.location,
         address: row.address ?? '',
-        total_slots: 1,
+        total_slots: typeof row.total_slots === 'number' && row.total_slots >= 1 ? row.total_slots : 1,
         urgent: Boolean(row.urgent),
         notes: row.notes ?? '',
         draftKey: createDraftKey(),
@@ -713,7 +736,7 @@ export function ShiftSpreadsheet({
 
     try {
       const sanitizedRows = rows.map((row, index) => {
-        const shiftRow = { ...row, total_slots: 1 }
+        const shiftRow = { ...row }
         delete shiftRow.draftKey
         const result = sanitizeShiftInput(shiftRow, index + 1)
         if (result.error || !result.value) {
@@ -825,6 +848,7 @@ export function ShiftSpreadsheet({
                   'Address',
                   'Start',
                   'End',
+                  'Slots',
                   'Urgent',
                   'Notes',
                   '',
@@ -841,7 +865,7 @@ export function ShiftSpreadsheet({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-gray-text">
+                  <td colSpan={13} className="px-4 py-10 text-center text-gray-text">
                     No shifts yet. Add a row or import a CSV to get started.
                   </td>
                 </tr>

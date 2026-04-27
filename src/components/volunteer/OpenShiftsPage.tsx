@@ -1157,7 +1157,16 @@ function ShiftCard({
   const canRequest = !full && !isRequested && !isAssigned
   // Only show status badge for non-available states (don't show "Open" on the Open Shifts page)
   const showStatus = isAssigned || isRequested || full
-  const statusLabel = isAssigned ? 'Assigned' : isRequested ? 'Requested' : full ? 'Full' : ''
+  const statusLabel = isAssigned
+    ? 'Assigned'
+    : isRequested
+      ? 'Requested'
+      : full
+        ? `Full (${shift.filled_slots}/${shift.total_slots})`
+        : ''
+  const slotsLabel = shift.total_slots > 1
+    ? `${shift.filled_slots}/${shift.total_slots} filled`
+    : null
   const statusClassName = isAssigned
     ? 'bg-[#6aa9ae] text-white'
     : isRequested
@@ -1214,6 +1223,11 @@ function ShiftCard({
             {shift.urgent ? (
               <span className="rounded-full bg-[#fff1dc] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.02em] text-[#d46d2d]">
                 Urgent
+              </span>
+            ) : null}
+            {slotsLabel && !full ? (
+              <span className="rounded-full bg-[#eef8f8] px-2.5 py-1 text-[11px] font-semibold text-[#4f9da2]">
+                {slotsLabel}
               </span>
             ) : null}
             {showStatus && (

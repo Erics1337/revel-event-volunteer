@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useEffect, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
+import { Command } from 'cmdk'
 import { ShiftModal } from '@/components/admin/ShiftModal'
 import { useShiftAdminData } from '@/components/admin/useShiftAdminData'
 import { SearchIcon } from '@/components/icons'
@@ -9,12 +10,15 @@ import {
   EVENT_DAYS,
   getShiftRoles,
   type VolunteerShift,
+  type AvailableVolunteer,
+  type ShiftAssignment,
 } from '@/lib/shifts/types'
 
 type ModalState =
   | { kind: 'closed' }
   | { kind: 'create'; seed?: { role?: string; day?: string; location?: string } }
   | { kind: 'edit'; shift: VolunteerShift }
+  | { kind: 'coverage'; shift: VolunteerShift }
 
 type CoverageFilter = 'all' | 'open' | 'covered' | 'urgent'
 
@@ -354,6 +358,7 @@ export default function AdminShiftsListPage() {
               const open = Math.max(0, shift.total_slots - shift.filled_slots)
               const isCovered = open === 0
               const day = EVENT_DAYS.find((d) => d.date === shift.day)
+              const pillClass = coveragePillClass(shift.filled_slots, shift.total_slots)
               return (
                 <tr
                   key={shift.id}
@@ -378,16 +383,14 @@ export default function AdminShiftsListPage() {
                     ) : null}
                   </td>
                   <td className="px-4 py-3 align-top">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isCovered
-                          ? 'bg-success/10 text-success'
-                          : 'bg-orange-light text-orange-dark'
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => setModal({ kind: 'coverage', shift })}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-75 ${pillClass}`}
                     >
                       {shift.filled_slots}/{shift.total_slots}{' '}
                       {isCovered ? 'covered' : `· ${open} open`}
-                    </span>
+                    </button>
                   </td>
                   <td className="px-4 py-3 align-top text-right">
                     <button
@@ -458,8 +461,28 @@ export default function AdminShiftsListPage() {
           onUnassign={(volunteerId) => unassignVolunteer(modal.shift.id, volunteerId)}
         />
       ) : null}
+
+      {modal.kind === 'coverage' ? (
+        <CoverageModal
+          shift={modal.shift}
+          assignments={assignments.filter((a) => a.shift_id === modal.shift.id)}
+          volunteers={volunteers}
+          onClose={() => setModal({ kind: 'closed' })}
+          onEdit={() => setModal({ kind: 'edit', shift: modal.shift })}
+          onAssign={(volunteerId: string) => assignVolunteer(modal.shift.id, volunteerId)}
+          onUnassign={(volunteerId: string) => unassignVolunteer(modal.shift.id, volunteerId)}
+        />
+      ) : null}
     </div>
   )
+}
+
+function coveragePillClass(filled: number, total: number): string {
+  if (total === 0 || filled >= total) return 'bg-success/10 text-success'
+  const ratio = filled / total
+  if (filled === 0) return 'bg-red-100 text-red-700'
+  if (ratio <= 0.5) return 'bg-orange-100 text-orange-700'
+  return 'bg-amber-100 text-amber-700'
 }
 
 interface FilterRowProps {
@@ -800,5 +823,254 @@ function FilterPill({ label, active, onToggle }: FilterPillProps) {
     >
       {label}
     </button>
+  )
+}
+
+interface CoverageModalProps {
+  shift: VolunteerShift
+  assignments: ShiftAssignment[]
+  volunteers: AvailableVolunteer[]
+  onClose: () => void
+  onEdit: () => void
+  onAssign: (volunteerId: string) => Promise<void>
+  onUnassign: (volunteerId: string) => Promise<void>
+}
+
+function CoverageModal({
+  shift,
+  assignments,
+  volunteers,
+  onClose,
+  onEdit,
+  onAssign,
+  onUnassign,
+}: CoverageModalProps) {
+  const [search, setSearch] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [assignError, setAssignError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = `coverage-modal-title-${shift.id}`
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null
+
+    const focusableSelectors =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+    const getFocusable = () =>
+      Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelectors) ?? [])
+
+    getFocusable()[0]?.focus()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key === 'Tab') {
+        const focusable = getFocusable()
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previousFocus?.focus()
+    }
+  }, [onClose])
+
+  const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
+  const isFull = shift.filled_slots >= shift.total_slots
+
+  const day = EVENT_DAYS.find((d) => d.date === shift.day)
+
+  const unassignedVolunteers = volunteers.filter((v) => !assignedIds.has(v.id) && !v.blocked)
+
+  const handleAssign = async (volunteerId: string) => {
+    setBusyId(volunteerId)
+    setAssignError(null)
+    try {
+      await onAssign(volunteerId)
+    } catch (err) {
+      console.error('Failed to assign volunteer', err)
+      setAssignError(err instanceof Error ? err.message : 'Failed to assign volunteer.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleUnassign = async (volunteerId: string) => {
+    setBusyId(volunteerId)
+    setAssignError(null)
+    try {
+      await onUnassign(volunteerId)
+    } catch (err) {
+      console.error('Failed to remove volunteer', err)
+      setAssignError(err instanceof Error ? err.message : 'Failed to remove volunteer.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-gray-border bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-gray-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="font-accent text-lg font-semibold text-charcoal">{shift.role}</h2>
+            <p className="text-sm text-gray-text">
+              {day?.label ?? shift.day} · {shift.start_time.slice(0, 5)}–{shift.end_time.slice(0, 5)} · {shift.location}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-3 shrink-0 rounded-full p-1 text-gray-mid hover:text-charcoal"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {assignError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {assignError}
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${coveragePillClass(shift.filled_slots, shift.total_slots)}`}>
+              {shift.filled_slots}/{shift.total_slots} {isFull ? 'covered' : `· ${shift.total_slots - shift.filled_slots} open`}
+            </span>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-xs font-medium text-teal hover:underline"
+            >
+              Edit shift →
+            </button>
+          </div>
+
+          {assignments.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-mid">Assigned</p>
+              <ul className="divide-y divide-gray-border/60 rounded-lg border border-gray-border">
+                {assignments.map((assignment) => {
+                  const vol = volunteers.find((v) => v.id === assignment.volunteer_id)
+                  return (
+                    <li key={assignment.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-charcoal">
+                          {vol?.name ?? 'Unknown volunteer'}
+                        </p>
+                        {vol ? (
+                          <p className="truncate text-xs text-gray-text">{vol.email} · {vol.phone}</p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busyId !== null}
+                        onClick={() => void handleUnassign(assignment.volunteer_id)}
+                        className="shrink-0 rounded-full border border-gray-border px-2.5 py-1 text-xs font-semibold text-red-500 transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        {busyId === assignment.volunteer_id ? '…' : 'Remove'}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-text italic">No volunteers assigned yet.</p>
+          )}
+
+          {!isFull ? (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-mid">Add volunteer</p>
+              <Command>
+                <div className="relative">
+                  <Command.Input
+                    value={search}
+                    onValueChange={setSearch}
+                    placeholder="Search volunteers…"
+                    className="w-full rounded-md border border-gray-border px-3 py-2 text-sm text-charcoal outline-none transition focus:border-teal focus:ring-2 focus:ring-teal/20"
+                  />
+                </div>
+                <Command.List className="mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-border p-1">
+                  <Command.Empty className="px-3 py-4 text-sm text-gray-text">
+                    No matching volunteers.
+                  </Command.Empty>
+                  {unassignedVolunteers.map((vol) => (
+                    <Command.Item
+                      key={vol.id}
+                      value={`${vol.name} ${vol.email} ${vol.phone}`}
+                      onSelect={() => void handleAssign(vol.id)}
+                      disabled={busyId !== null}
+                      className="cursor-pointer rounded-md px-3 py-2 data-[selected=true]:bg-teal-50 data-[disabled=true]:opacity-40"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 truncate font-medium text-charcoal text-sm">
+                            <span className="truncate">{vol.name}</span>
+                            {vol.availability.includes(shift.day) ? (
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                Available
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                Outside availability
+                              </span>
+                            )}
+                          </div>
+                          <div className="truncate text-xs text-gray-text">{vol.email} · {vol.phone}</div>
+                        </div>
+                        {busyId === vol.id ? (
+                          <span className="text-xs text-gray-mid">Adding…</span>
+                        ) : null}
+                      </div>
+                    </Command.Item>
+                  ))}
+                </Command.List>
+              </Command>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-text italic">
+              Shift is full. Edit the shift to increase the slot count.
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t border-gray-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-gray-light px-4 py-1.5 text-sm font-medium text-charcoal hover:bg-gray-border"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

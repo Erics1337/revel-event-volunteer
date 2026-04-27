@@ -81,6 +81,9 @@ export function ShiftModal({
   )
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [urgent, setUrgent] = useState(Boolean(initial?.urgent))
+  const [totalSlots, setTotalSlots] = useState(
+    typeof initial?.total_slots === 'number' && initial.total_slots >= 1 ? initial.total_slots : 1
+  )
   const [saving, setSaving] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [volunteerSearch, setVolunteerSearch] = useState('')
@@ -107,7 +110,7 @@ export function ShiftModal({
         end_time: endTime,
         location,
         address,
-        total_slots: 1,
+        total_slots: totalSlots,
         urgent,
         notes,
       })
@@ -152,6 +155,7 @@ export function ShiftModal({
 
   const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
   const unassignedVolunteers = volunteers.filter((v) => !assignedIds.has(v.id))
+  const isShiftFull = assignments.length >= totalSlots
   const filteredVolunteers = useMemo(
     () =>
       unassignedVolunteers
@@ -203,8 +207,13 @@ export function ShiftModal({
 
           {mode === 'edit' && (
             <div className="mb-5 rounded-xl border border-gray-border bg-gray-light/40 p-4">
-              <h3 className="mb-2 text-sm font-semibold text-charcoal">
-                Assigned Volunteers ({assignments.length})
+              <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-charcoal">
+                <span>Assigned Volunteers ({assignments.length}/{totalSlots})</span>
+                {isShiftFull ? (
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                    Full
+                  </span>
+                ) : null}
               </h3>
               {assignments.length === 0 ? (
                 <p className="text-sm text-gray-text italic">None assigned yet.</p>
@@ -244,7 +253,7 @@ export function ShiftModal({
                   ))}
                 </ul>
               )}
-              {onAssign ? (
+              {onAssign && !isShiftFull ? (
                 filteredVolunteers.length > 0 || unassignedVolunteers.length > 0 ? (
                   <div className="space-y-2">
                     <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -330,6 +339,10 @@ export function ShiftModal({
                     All confirmed volunteers are already assigned.
                   </p>
                 )
+              ) : isShiftFull && onAssign ? (
+                <p className="text-sm text-gray-text italic">
+                  This shift is full. Increase the slot count below to add more volunteers.
+                </p>
               ) : null}
             </div>
           )}
@@ -416,6 +429,29 @@ export function ShiftModal({
                 rows={3}
                 placeholder="Optional shift notes"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1">
+                Slots (volunteers needed)
+              </label>
+              <input
+                type="number"
+                min={Math.max(1, assignments.length)}
+                max={100}
+                value={totalSlots}
+                onChange={(e) => {
+                  const next = Number(e.target.value)
+                  if (Number.isFinite(next)) setTotalSlots(Math.max(Math.max(1, assignments.length), Math.floor(next)))
+                }}
+                className="w-full px-3 py-2 border border-gray-border rounded-md"
+                required
+              />
+              {assignments.length > 0 ? (
+                <p className="mt-1 text-xs text-gray-text">
+                  Cannot reduce below the {assignments.length} currently assigned.
+                </p>
+              ) : null}
             </div>
 
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-orange-200 bg-orange-50/70 p-3">
