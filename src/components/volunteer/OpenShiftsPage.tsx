@@ -112,6 +112,7 @@ export function OpenShiftsPage() {
   const [selectedLocation, setSelectedLocation] = useState<string[]>([])
   const [selectedTime, setSelectedTime] = useState<string[]>([])
   const [onlyMyAvailability, setOnlyMyAvailability] = useState(true)
+  const [showFullShifts, setShowFullShifts] = useState(false)
   const [volunteer, setVolunteer] = useState<VolunteerRecord | null>(null)
   const [assignments, setAssignments] = useState<VolunteerAssignment[]>([])
   const [submittingShiftId, setSubmittingShiftId] = useState<string | null>(null)
@@ -213,13 +214,14 @@ export function OpenShiftsPage() {
     () =>
       shifts.filter((shift) => {
         if (showAvailabilityOnly && !availability.includes(shift.day)) return false
+        if (!showFullShifts && shift.filled_slots >= shift.total_slots) return false
         if (selectedDay.length > 0 && !selectedDay.includes(shift.day)) return false
         if (selectedRole.length > 0 && !selectedRole.includes(shift.role)) return false
         if (selectedLocation.length > 0 && !selectedLocation.includes(shift.location)) return false
         if (selectedTime.length > 0 && !selectedTime.includes(shift.start_time)) return false
         return true
       }),
-    [availability, selectedDay, selectedLocation, selectedRole, selectedTime, shifts, showAvailabilityOnly]
+    [availability, selectedDay, selectedLocation, selectedRole, selectedTime, shifts, showAvailabilityOnly, showFullShifts]
   )
 
   const filteredDays = useMemo(
@@ -605,17 +607,28 @@ export function OpenShiftsPage() {
               <span>{urgentShifts.length} urgent</span>
               <span>{filteredDays.length} day view{filteredDays.length !== 1 ? 's' : ''}</span>
             </div>
-            {(selectedDay.length > 0 ||
-              selectedRole.length > 0 ||
-              selectedLocation.length > 0 ||
-              selectedTime.length > 0) && (
-              <button
-                onClick={clearFilters}
-                className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
-              >
-                Clear filters
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#6f7883]">
+                <input
+                  type="checkbox"
+                  checked={showFullShifts}
+                  onChange={(e) => setShowFullShifts(e.target.checked)}
+                  className="rounded border-[#d8dde3] text-[#6aa9ae] focus:ring-[#6aa9ae]"
+                />
+                Show full shifts
+              </label>
+              {(selectedDay.length > 0 ||
+                selectedRole.length > 0 ||
+                selectedLocation.length > 0 ||
+                selectedTime.length > 0) && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm font-medium text-[#6f7883] underline underline-offset-2 transition hover:text-[#5aaeb3]"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
