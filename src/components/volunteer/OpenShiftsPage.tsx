@@ -745,7 +745,7 @@ export function OpenShiftsPage() {
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
-                    Selected Shift
+                    Confirm Sign-Up
                   </p>
                   <p className="mt-1 text-sm text-[#6f7883]">
                     Review the shift details, then request it or switch to list view.

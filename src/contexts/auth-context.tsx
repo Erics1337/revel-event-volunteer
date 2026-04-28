@@ -7,6 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 
 type AuthUser = Database['public']['Tables']['users']['Row']
 
+interface CurrentUserResponse {
+  user?: AuthUser | null
+  error?: string
+}
+
 interface AuthContextType {
   user: User | null
   profile: AuthUser | null
@@ -135,10 +140,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Get initial session
         const sessionResult = await withTimeout(supabase.auth.getSession(), 4000)
         const session = sessionResult?.data.session
+        const userResult = session?.user
+          ? null
+          : await withTimeout(supabase.auth.getUser(), 4000)
+        const authUser = session?.user ?? userResult?.data.user
         
-        if (session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user)
+        if (authUser) {
+          setUser(authUser)
+          await fetchProfile(authUser)
+        } else {
+          const response = await fetch('/api/users/me')
+          if (response.ok) {
+            const payload = (await response.json().catch(() => ({}))) as CurrentUserResponse
+            if (payload.user) {
+              setProfile(payload.user)
+              setUser({
+                id: payload.user.id,
+                email: payload.user.email,
+                aud: 'authenticated',
+                app_metadata: {},
+                user_metadata: {},
+                created_at: payload.user.created_at,
+              } as User)
+            }
+          }
         }
         
         setLoading(false)

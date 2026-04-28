@@ -23,10 +23,12 @@ export async function GET() {
         headline,
         bio,
         linkedin_url,
+        phone,
         email_public,
         role,
         badges,
-        created_at
+        created_at,
+        updated_at
       `)
       .eq('id', user.id)
       .single()

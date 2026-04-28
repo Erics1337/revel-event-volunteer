@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:auth-static": "node scripts/auth-static-check.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:auth": "playwright test tests/e2e/auth.spec.ts",
+    "test:regression": "npm run lint && npm run build && npm run test:auth-static && npm run test:e2e",
     "db:types": "npm run db:types:local",
     "db:types:local": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "db:types:remote": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
@@ -39,6 +43,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
