@@ -56,6 +56,15 @@ export default function AdminShiftsListPage() {
     [shifts]
   )
 
+  const stats = useMemo(() => {
+    const totalSlots = shifts.reduce((sum, s) => sum + (s.total_slots ?? 0), 0)
+    const filledSlots = shifts.reduce((sum, s) => sum + (s.filled_slots ?? 0), 0)
+    const openSlots = Math.max(0, totalSlots - filledSlots)
+    const coveredShifts = shifts.filter((s) => s.filled_slots >= s.total_slots).length
+    const fillPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0
+    return { totalShifts: shifts.length, totalSlots, filledSlots, openSlots, coveredShifts, fillPct }
+  }, [shifts])
+
   const sortedShifts = useMemo(
     () =>
       [...shifts].sort(
@@ -154,6 +163,60 @@ export default function AdminShiftsListPage() {
         >
           + New Shift
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => { setCoverageFilter('all'); }}
+          className="rounded-xl border border-gray-border bg-white px-4 py-3 shadow-sm text-left transition hover:border-teal-300 hover:shadow"
+        >
+          <p className="text-xs font-medium text-gray-mid">Total Shifts</p>
+          <p className="mt-0.5 text-xl font-bold text-charcoal">{stats.totalShifts}</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setCoverageFilter('covered'); }}
+          className="rounded-xl border border-gray-border bg-white px-4 py-3 shadow-sm text-left transition hover:border-emerald-300 hover:shadow"
+        >
+          <p className="text-xs font-medium text-gray-mid">Covered</p>
+          <p className={`mt-0.5 text-xl font-bold ${stats.coveredShifts === stats.totalShifts ? 'text-emerald-600' : 'text-charcoal'}`}>
+            {stats.coveredShifts} <span className="text-sm font-normal text-gray-mid">/ {stats.totalShifts}</span>
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setCoverageFilter('open'); }}
+          className={`rounded-xl border px-4 py-3 shadow-sm text-left transition hover:shadow ${
+            stats.openSlots === 0
+              ? 'border-gray-border bg-white hover:border-teal-300'
+              : 'border-orange-200 bg-orange-50 hover:border-orange-300'
+          }`}
+        >
+          <p className={`text-xs font-medium ${stats.openSlots === 0 ? 'text-gray-mid' : 'text-orange-600'}`}>Open Slots</p>
+          <p className={`mt-0.5 text-xl font-bold ${stats.openSlots === 0 ? 'text-charcoal' : 'text-orange-700'}`}>
+            {stats.openSlots}
+          </p>
+        </button>
+
+        <div className="rounded-xl border border-gray-border bg-white px-4 py-3 shadow-sm">
+          <p className="text-xs font-medium text-gray-mid">Fill Rate</p>
+          <p className={`mt-0.5 text-xl font-bold ${
+            stats.fillPct >= 80 ? 'text-emerald-600' : stats.fillPct >= 50 ? 'text-amber-600' : 'text-red-600'
+          }`}>
+            {stats.fillPct}%
+          </p>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-border">
+            <div
+              className={`h-full rounded-full transition-all ${
+                stats.fillPct >= 80 ? 'bg-emerald-500' : stats.fillPct >= 50 ? 'bg-amber-400' : 'bg-red-400'
+              }`}
+              style={{ width: `${stats.fillPct}%` }}
+            />
+          </div>
+        </div>
       </div>
       {filterMessage ? (
         <div className="rounded-md border border-gray-border bg-gray-50 px-3 py-2 text-sm text-charcoal">
