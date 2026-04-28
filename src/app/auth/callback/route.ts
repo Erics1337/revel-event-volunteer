@@ -5,7 +5,11 @@ import { Database } from '@/lib/supabase/database.types'
 import { type EmailOtpType } from '@supabase/supabase-js'
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const requestUrl = new URL(request.url)
+  const { searchParams } = requestUrl
+  const host = request.headers.get('host') ?? request.headers.get('x-forwarded-host') ?? requestUrl.host
+  const protocol = request.headers.get('x-forwarded-proto') ?? requestUrl.protocol.replace(':', '')
+  const origin = `${protocol}://${host}`
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
@@ -43,7 +47,7 @@ export async function GET(request: Request) {
     },
   })
 
-  const { error } = code
+  const { data, error } = code
     ? await supabase.auth.exchangeCodeForSession(code)
     : await supabase.auth.verifyOtp({
         token_hash: tokenHash!,
@@ -54,23 +58,31 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
   }
 
+  if (data.session) {
+    await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    })
+  }
+
   // Create user profile on first sign-in.
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const authUser = user ?? data.user
 
-  if (user) {
+  if (authUser) {
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .eq('id', user.id)
+      .eq('id', authUser.id)
       .single()
 
     if (!existingUser) {
       await supabase.from('users').insert({
-        id: user.id,
-        email: user.email!,
-        name: user.user_metadata?.full_name || user.email!.split('@')[0],
+        id: authUser.id,
+        email: authUser.email!,
+        name: '',
         role: 'volunteer',
       } satisfies Database['public']['Tables']['users']['Insert'])
     }
