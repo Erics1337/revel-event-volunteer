@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/'
+  const nextParam = searchParams.get('next') ?? '/'
+  const next = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
 
   if (!code && !(tokenHash && type)) {
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)

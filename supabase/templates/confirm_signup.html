@@ -202,14 +202,14 @@
       </p>
       
       <div class="button-container">
-        <a href="{{ .ConfirmationURL }}" class="magic-button">
+        <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" class="magic-button">
           Confirm Email & Sign In
         </a>
       </div>
       
       <div class="fallback-link">
         <p>Or copy and paste this link into your browser:</p>
-        <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+        <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email</a>
       </div>
       
       <div class="event-details">

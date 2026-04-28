@@ -21,6 +21,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<AuthUser | null>(null)
@@ -116,7 +133,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const supabase = createClient()
         
         // Get initial session
-        const { data: { session } } = await supabase.auth.getSession()
+        const sessionResult = await withTimeout(supabase.auth.getSession(), 4000)
+        const session = sessionResult?.data.session
         
         if (session?.user) {
           setUser(session.user)
