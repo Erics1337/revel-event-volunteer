@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useAuthModal } from '@/contexts/auth-modal-context'
 import { isAdmin } from '@/lib/auth/roles'
 import bswHeroImage from '../../public/bsw-img-1.png'
 import bswTeamImage from '../../public/bsw-img-2.png'
@@ -59,10 +60,11 @@ const AUTH_NAV_LINKS = [
 
 export default function Home() {
   const { user, profile, loading, signOut } = useAuth()
+  const { openSignInModal } = useAuthModal()
   const [signingOut, setSigningOut] = useState(false)
   const primaryCta = user
     ? { href: '/open-shifts', label: 'Browse Open Shifts' }
-    : { href: '/auth/login', label: 'Get Started' }
+    : { href: '/', label: 'Get Started' }
   const secondaryCta = user
     ? { href: '/schedule', label: 'My Schedule' }
     : { href: '/open-shifts', label: 'See Open Shifts' }
@@ -74,7 +76,7 @@ export default function Home() {
     try {
       await signOut()
     } finally {
-      window.location.href = '/auth/login'
+      window.location.href = '/'
     }
   }
 
@@ -142,12 +144,13 @@ export default function Home() {
                   </nav>
 
                   {!user && (
-                    <Link
-                      href="/auth/login"
+                    <button
+                      type="button"
+                      onClick={() => openSignInModal({ nextPath: '/' })}
                       className="btn-primary inline-flex items-center justify-center whitespace-nowrap"
                     >
                       Sign In / Sign Up
-                    </Link>
+                    </button>
                   )}
                 </div>
               </div>
@@ -187,9 +190,19 @@ export default function Home() {
                 </div>
 
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                  <Link href={primaryCta.href} className="btn-primary inline-flex items-center justify-center">
-                    {primaryCta.label}
-                  </Link>
+                  {user ? (
+                    <Link href={primaryCta.href} className="btn-primary inline-flex items-center justify-center">
+                      {primaryCta.label}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openSignInModal({ nextPath: '/' })}
+                      className="btn-primary inline-flex items-center justify-center"
+                    >
+                      {primaryCta.label}
+                    </button>
+                  )}
                   <Link
                     href={secondaryCta.href}
                     className="btn-secondary inline-flex items-center justify-center border-white text-white hover:border-teal"
@@ -373,9 +386,19 @@ export default function Home() {
                     <Link href="/open-shifts" className="btn-primary inline-flex items-center justify-center">
                       Open volunteer portal
                     </Link>
-                    <Link href="/schedule" className="btn-secondary inline-flex items-center justify-center">
-                      Check your schedule
-                    </Link>
+                    {user ? (
+                      <Link href="/schedule" className="btn-secondary inline-flex items-center justify-center">
+                        Check your schedule
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openSignInModal({ nextPath: '/schedule' })}
+                        className="btn-secondary inline-flex items-center justify-center"
+                      >
+                        Check your schedule
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -399,9 +422,19 @@ export default function Home() {
                 Ready to join the crew?
               </h2>
               <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-                <Link href={primaryCta.href} className="btn-primary inline-flex items-center justify-center">
-                  {primaryCta.label}
-                </Link>
+                {user ? (
+                  <Link href={primaryCta.href} className="btn-primary inline-flex items-center justify-center">
+                    {primaryCta.label}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openSignInModal({ nextPath: '/' })}
+                    className="btn-primary inline-flex items-center justify-center"
+                  >
+                    {primaryCta.label}
+                  </button>
+                )}
                 <Link
                   href={secondaryCta.href}
                   className="btn-secondary inline-flex items-center justify-center border-white text-white hover:border-teal"
@@ -421,9 +454,19 @@ export default function Home() {
             <Link href="/open-shifts" className="transition hover:text-teal">
               Volunteer portal
             </Link>
-            <Link href="/schedule" className="transition hover:text-teal">
-              My schedule
-            </Link>
+            {user ? (
+              <Link href="/schedule" className="transition hover:text-teal">
+                My schedule
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openSignInModal({ nextPath: '/schedule' })}
+                className="cursor-pointer transition hover:text-teal"
+              >
+                My schedule
+              </button>
+            )}
             {user ? (
               <button
                 onClick={handleSignOut}
@@ -433,9 +476,13 @@ export default function Home() {
                 {signingOut ? 'Signing out...' : 'Sign Out'}
               </button>
             ) : (
-              <Link href="/auth/login" className="transition hover:text-teal">
+              <button
+                type="button"
+                onClick={() => openSignInModal({ nextPath: '/' })}
+                className="cursor-pointer transition hover:text-teal"
+              >
                 Sign In
-              </Link>
+              </button>
             )}
           </div>
         </div>

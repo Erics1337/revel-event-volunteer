@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OpenShiftsCalendar } from '@/components/volunteer/OpenShiftsCalendar'
 import { useAuth } from '@/contexts/auth-context'
+import { useAuthModal } from '@/contexts/auth-modal-context'
 import type { AssignmentStatus } from '@/lib/shifts/types'
 import { EVENT_DAYS } from '@/lib/shifts/types'
 
@@ -102,8 +102,8 @@ interface RequestFeedback {
 }
 
 export function OpenShiftsPage() {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { openSignInModal } = useAuthModal()
   const [shifts, setShifts] = useState<VolunteerShift[]>([])
   const [loading, setLoading] = useState(true)
   const [contextLoading, setContextLoading] = useState(true)
@@ -293,7 +293,7 @@ export function OpenShiftsPage() {
   }, [message])
 
   const redirectToSignIn = () => {
-    router.push('/auth/login?redirectTo=/open-shifts')
+    openSignInModal({ nextPath: '/open-shifts' })
   }
 
   const handlePrimaryAction = (shift: VolunteerShift) => {

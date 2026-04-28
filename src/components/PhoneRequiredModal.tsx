@@ -147,7 +147,7 @@ function RequiredProfileModalBody({
     try {
       await signOut()
     } finally {
-      router.replace('/auth/login')
+      router.replace('/')
     }
   }
 

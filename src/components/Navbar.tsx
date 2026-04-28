@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useAuthModal } from '@/contexts/auth-modal-context'
 import { isAdmin } from '@/lib/auth/roles'
 import Image from 'next/image'
 import bswLogo from '../../public/bsw-logo-BUCTZ2oQ.png'
@@ -28,8 +29,8 @@ interface NavbarProps {
 export function Navbar({ variant = 'default', adminNavItems, showLogoImage = false }: NavbarProps) {
   const pathname = usePathname()
   const { user, profile, loading, signOut } = useAuth()
+  const { openSignInModal } = useAuthModal()
   const [signingOut, setSigningOut] = useState(false)
-  const signInHref = `/auth/login?redirectTo=${encodeURIComponent(pathname)}`
 
   const handleSignOut = async () => {
     if (signingOut) return
@@ -119,12 +120,13 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
                   </button>
                 </>
               ) : (
-                <Link
-                  href={signInHref}
+                <button
+                  type="button"
+                  onClick={() => openSignInModal({ nextPath: pathname })}
                   className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
                 >
                   Sign In
-                </Link>
+                </button>
               ))}
           </div>
         </div>
@@ -155,15 +157,30 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
         <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto">
           {MAIN_NAV_LINKS.map((link) => {
             const active = isActiveLink(pathname, link.href)
+            const className = `whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition ${
+              active
+                ? 'bg-[#eef8f8] text-[#6aa9ae]'
+                : 'text-[#6f7883] hover:bg-[#f0f2ef] hover:text-[#5aaeb3]'
+            }`
+
+            if (!user && link.href === '/schedule') {
+              return (
+                <button
+                  key={link.href}
+                  type="button"
+                  onClick={() => openSignInModal({ nextPath: link.href })}
+                  className={className}
+                >
+                  {link.label}
+                </button>
+              )
+            }
+
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition ${
-                  active
-                    ? 'bg-[#eef8f8] text-[#6aa9ae]'
-                    : 'text-[#6f7883] hover:bg-[#f0f2ef] hover:text-[#5aaeb3]'
-                }`}
+                className={className}
               >
                 {link.label}
               </Link>
@@ -204,12 +221,13 @@ export function Navbar({ variant = 'default', adminNavItems, showLogoImage = fal
                 </button>
               </>
             ) : (
-              <Link
-                href={signInHref}
+              <button
+                type="button"
+                onClick={() => openSignInModal({ nextPath: pathname })}
                 className="cursor-pointer rounded-sm bg-[#ef8f3d] px-3 py-1.5 text-sm font-semibold text-white shadow-[3px_3px_0_rgba(26,26,26,0.85)] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#e98529] hover:shadow-[2px_2px_0_rgba(26,26,26,0.85)]"
               >
                 Sign In
-              </Link>
+              </button>
             ))}
         </div>
       </div>

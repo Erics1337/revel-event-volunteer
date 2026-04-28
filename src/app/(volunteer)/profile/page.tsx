@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
+import { useAuthModal } from '@/contexts/auth-modal-context'
 import { EVENT_DAYS } from '@/lib/shifts/types'
 
 interface VolunteerContextResponse {
@@ -14,6 +15,7 @@ interface VolunteerContextResponse {
 
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth()
+  const { openSignInModal } = useAuthModal()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [availability, setAvailability] = useState<string[]>([])
@@ -144,12 +146,13 @@ export default function ProfilePage() {
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
         <div className="text-center">
           <p className="mb-4 text-lg text-gray-text">Please sign in to view your profile.</p>
-          <Link
-            href="/auth/login?redirectTo=/profile"
+          <button
+            type="button"
+            onClick={() => openSignInModal({ nextPath: '/profile' })}
             className="px-6 py-3 font-medium text-white bg-teal-500 rounded-md transition-colors hover:bg-teal-600"
           >
             Sign in
-          </Link>
+          </button>
         </div>
       </div>
     )

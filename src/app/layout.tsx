@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/auth-context';
+import { AuthModalProvider } from '@/contexts/auth-modal-context';
 import { PhoneRequiredModal } from '@/components/PhoneRequiredModal';
 
 export const metadata: Metadata = {
@@ -22,8 +23,10 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider>
-          {children}
-          <PhoneRequiredModal />
+          <AuthModalProvider>
+            {children}
+            <PhoneRequiredModal />
+          </AuthModalProvider>
         </AuthProvider>
         <Analytics />
       </body>
