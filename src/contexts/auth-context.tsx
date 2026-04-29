@@ -88,6 +88,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .single()
 
+        // Also create volunteers record so they appear in volunteer lists
+        if (!insertError) {
+          try {
+            await supabase.from('volunteers').insert({
+              user_id: authUser.id,
+              phone: '',
+              availability: [],
+              status: 'confirmed',
+              shift_count: 0,
+            })
+          } catch {
+            // Ignore errors - volunteers record may already exist
+          }
+        }
+
         if (insertError) {
           // 23503 = foreign_key_violation. The user's session JWT references
           // an auth.users row that no longer exists (typically after a local

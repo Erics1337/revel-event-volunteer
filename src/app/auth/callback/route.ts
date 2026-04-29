@@ -85,6 +85,15 @@ export async function GET(request: Request) {
         name: '',
         role: 'volunteer',
       } satisfies Database['public']['Tables']['users']['Insert'])
+
+      // Also create volunteers record so they appear in volunteer lists
+      await supabase.from('volunteers').insert({
+        user_id: authUser.id,
+        phone: '',
+        availability: [],
+        status: 'confirmed',
+        shift_count: 0,
+      })
     }
   }
 
