@@ -322,32 +322,57 @@ export function parseShiftRows(rows: CsvRow[]): { shifts?: EditableShiftInput[];
   return { shifts: sortShifts(shifts) }
 }
 
-export function shiftsToCsv(shifts: EditableShiftInput[]): string {
-  return Papa.unparse(shiftsToLegacyRows(shifts), {
+export interface ExportAssignment {
+  shift_id: string
+  volunteer: { name: string; phone: string; email: string } | null
+}
+
+export function shiftsToCsv(shifts: EditableShiftInput[], assignments: ExportAssignment[] = []): string {
+  return Papa.unparse(shiftsToLegacyRows(shifts, assignments), {
     columns: [...SHIFT_EXPORT_HEADERS],
   })
 }
 
-export function shiftsToTabularData(shifts: EditableShiftInput[]) {
-  return shiftsToLegacyRows(shifts)
+export function shiftsToTabularData(shifts: EditableShiftInput[], assignments: ExportAssignment[] = []) {
+  return shiftsToLegacyRows(shifts, assignments)
 }
 
-function shiftsToLegacyRows(shifts: EditableShiftInput[]) {
-  return sortShifts(shifts).flatMap((shift) =>
-    Array.from({ length: shift.total_slots }, () => ({
+function shiftsToLegacyRows(shifts: EditableShiftInput[], assignments: ExportAssignment[]) {
+  const byShift = new Map<string, ExportAssignment[]>()
+  for (const a of assignments) {
+    if (!byShift.has(a.shift_id)) byShift.set(a.shift_id, [])
+    byShift.get(a.shift_id)!.push(a)
+  }
+
+  return sortShifts(shifts).flatMap((shift) => {
+    const shiftAssignments = shift.id ? (byShift.get(shift.id) ?? []) : []
+    const base = {
       Day: formatLegacyDay(shift.day),
       Role: shift.role,
-      'Volunteer Name': '',
-      'Volunteer Cell': '',
-      'Volunteer Email': '',
       Location: shift.location,
       Address: shift.address ?? '',
       Shift_Start: formatLegacyTime(shift.start_time),
       Shift_End: formatLegacyTime(shift.end_time),
       Urgent: shift.urgent ? 'Yes' : '',
       Notes: shift.notes ?? '',
-    }))
-  )
+    }
+
+    if (shiftAssignments.length > 0) {
+      return shiftAssignments.map((a) => ({
+        ...base,
+        'Volunteer Name': a.volunteer?.name ?? '',
+        'Volunteer Cell': a.volunteer?.phone ?? '',
+        'Volunteer Email': a.volunteer?.email ?? '',
+      }))
+    }
+
+    return [{
+      ...base,
+      'Volunteer Name': '',
+      'Volunteer Cell': '',
+      'Volunteer Email': '',
+    }]
+  })
 }
 
 export function collectVenueRecords(

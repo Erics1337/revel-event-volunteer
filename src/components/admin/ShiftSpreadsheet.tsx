@@ -756,7 +756,7 @@ export function ShiftSpreadsheet({
   }, [deletedShiftIds, onSave, rows])
 
   const handleExport = useCallback(() => {
-    const csv = shiftsToCsv(rows)
+    const csv = shiftsToCsv(rows, assignments)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -764,15 +764,15 @@ export function ShiftSpreadsheet({
     link.download = 'BSW_2026_Volunteer_Shifts.csv'
     link.click()
     URL.revokeObjectURL(url)
-  }, [rows])
+  }, [rows, assignments])
 
   const handleExportXlsx = useCallback(async () => {
     const XLSX = await import('xlsx')
-    const worksheet = XLSX.utils.json_to_sheet(shiftsToTabularData(rows))
+    const worksheet = XLSX.utils.json_to_sheet(shiftsToTabularData(rows, assignments))
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'BSW_2026_Volunteer_Shifts.csv')
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'BSW_2026_Volunteer_Shifts')
     XLSX.writeFile(workbook, 'BSW_2026_Volunteer_Shifts.xlsx')
-  }, [rows])
+  }, [rows, assignments])
 
   return (
     <div className="space-y-4">
