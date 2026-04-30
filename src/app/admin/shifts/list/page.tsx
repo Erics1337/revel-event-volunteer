@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { Command } from 'cmdk'
 import { ShiftModal } from '@/components/admin/ShiftModal'
@@ -56,14 +56,39 @@ export default function AdminShiftsListPage() {
     [shifts]
   )
 
+  const filledByShift = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const a of assignments) {
+      if (a.status === 'cancelled') continue
+      counts.set(a.shift_id, (counts.get(a.shift_id) ?? 0) + 1)
+    }
+    return counts
+  }, [assignments])
+
+  const getFilled = useCallback(
+    (shift: VolunteerShift) => {
+      const fromAssignments = filledByShift.get(shift.id)
+      if (fromAssignments !== undefined) return fromAssignments
+      return shift.filled_slots ?? 0
+    },
+    [filledByShift]
+  )
+
   const stats = useMemo(() => {
     const totalSlots = shifts.reduce((sum, s) => sum + (s.total_slots ?? 0), 0)
-    const filledSlots = shifts.reduce((sum, s) => sum + (s.filled_slots ?? 0), 0)
+    const filledSlots = shifts.reduce((sum, s) => sum + Math.min(getFilled(s), s.total_slots ?? 0), 0)
     const openSlots = Math.max(0, totalSlots - filledSlots)
-    const coveredShifts = shifts.filter((s) => s.filled_slots >= s.total_slots).length
+    const coveredShifts = shifts.filter((s) => getFilled(s) >= s.total_slots).length
     const fillPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0
-    return { totalShifts: shifts.length, totalSlots, filledSlots, openSlots, coveredShifts, fillPct }
-  }, [shifts])
+    return {
+      totalShifts: shifts.length,
+      totalSlots,
+      filledSlots,
+      openSlots,
+      coveredShifts,
+      fillPct,
+    }
+  }, [shifts, getFilled])
 
   const sortedShifts = useMemo(
     () =>
@@ -85,8 +110,9 @@ export default function AdminShiftsListPage() {
       if (roleFilter.length > 0 && !roleFilter.includes(shift.role)) return false
       if (locationFilter.length > 0 && !locationFilter.includes(shift.location)) return false
 
-      if (coverageFilter === 'open' && shift.filled_slots >= shift.total_slots) return false
-      if (coverageFilter === 'covered' && shift.filled_slots < shift.total_slots) return false
+      const filled = getFilled(shift)
+      if (coverageFilter === 'open' && filled >= shift.total_slots) return false
+      if (coverageFilter === 'covered' && filled < shift.total_slots) return false
       if (coverageFilter === 'urgent' && !shift.urgent) return false
 
       if (query) {
@@ -106,7 +132,7 @@ export default function AdminShiftsListPage() {
 
       return true
     })
-  }, [sortedShifts, dayFilter, roleFilter, locationFilter, coverageFilter, query])
+  }, [sortedShifts, dayFilter, roleFilter, locationFilter, coverageFilter, query, getFilled])
 
   const modalAssignments = useMemo(() => {
     if (modal.kind !== 'edit') return []
@@ -418,10 +444,13 @@ export default function AdminShiftsListPage() {
           </thead>
           <tbody>
             {filteredShifts.map((shift) => {
-              const open = Math.max(0, shift.total_slots - shift.filled_slots)
+              const filled = getFilled(shift)
+              const open = Math.max(0, shift.total_slots - filled)
+              const over = Math.max(0, filled - shift.total_slots)
               const isCovered = open === 0
+              const isOverstaffed = over > 0
               const day = EVENT_DAYS.find((d) => d.date === shift.day)
-              const pillClass = coveragePillClass(shift.filled_slots, shift.total_slots)
+              const pillClass = coveragePillClass(filled, shift.total_slots)
               return (
                 <tr
                   key={shift.id}
@@ -451,8 +480,12 @@ export default function AdminShiftsListPage() {
                       onClick={() => setModal({ kind: 'coverage', shift })}
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-75 ${pillClass}`}
                     >
-                      {shift.filled_slots}/{shift.total_slots}{' '}
-                      {isCovered ? 'covered' : `· ${open} open`}
+                      {filled}/{shift.total_slots}{' '}
+                      {isOverstaffed
+                        ? `· ${over} over`
+                        : isCovered
+                          ? 'covered'
+                          : `· ${open} open`}
                     </button>
                   </td>
                   <td className="px-4 py-3 align-top text-right">
@@ -541,6 +574,7 @@ export default function AdminShiftsListPage() {
 }
 
 function coveragePillClass(filled: number, total: number): string {
+  if (total > 0 && filled > total) return 'bg-purple-100 text-purple-700'
   if (total === 0 || filled >= total) return 'bg-success/10 text-success'
   const ratio = filled / total
   if (filled === 0) return 'bg-red-100 text-red-700'
@@ -956,8 +990,13 @@ function CoverageModal({
     }
   }, [onClose])
 
+  const activeAssignments = assignments.filter((a) => a.status !== 'cancelled')
   const assignedIds = new Set(assignments.map((a) => a.volunteer_id))
-  const isFull = shift.filled_slots >= shift.total_slots
+  const filled = activeAssignments.length
+  const open = Math.max(0, shift.total_slots - filled)
+  const over = Math.max(0, filled - shift.total_slots)
+  const isFull = filled >= shift.total_slots
+  const isOverstaffed = over > 0
 
   const day = EVENT_DAYS.find((d) => d.date === shift.day)
 
@@ -1023,8 +1062,9 @@ function CoverageModal({
             </div>
           ) : null}
           <div className="flex items-center justify-between">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${coveragePillClass(shift.filled_slots, shift.total_slots)}`}>
-              {shift.filled_slots}/{shift.total_slots} {isFull ? 'covered' : `· ${shift.total_slots - shift.filled_slots} open`}
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${coveragePillClass(filled, shift.total_slots)}`}>
+              {filled}/{shift.total_slots}{' '}
+              {isOverstaffed ? `· ${over} over` : isFull ? 'covered' : `· ${open} open`}
             </span>
             <button
               type="button"
