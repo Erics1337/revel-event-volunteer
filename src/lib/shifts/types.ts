@@ -103,7 +103,9 @@ export const VENUE_NAMES = [
   'Boulder Public Library',
   'Brand Studios',
   'Canyon Center',
+  'RegenHub',
   'Rosetta Hall',
+  'Siena Square',
   'SOVRN',
 ] as const
 
@@ -112,7 +114,9 @@ export const VENUE_ADDRESSES: Record<(typeof VENUE_NAMES)[number], string> = {
   'Boulder Public Library': '1001 Arapahoe Ave, Boulder, CO 80302',
   'Brand Studios': '1301 Walnut Street, Boulder, CO 80302',
   'Canyon Center': '1881 9th Street, Boulder, CO 80302',
+  'RegenHub': '1515 Walnut St, Boulder, CO 80302',
   'Rosetta Hall': '1109 Walnut Street, Boulder, CO 80302',
+  'Siena Square': '2060 Broadway, Boulder, CO 80302',
   SOVRN: '1600 Pearl St #200, Boulder, CO 80302',
 }
 
@@ -121,6 +125,8 @@ export const VENUE_MAPS_URLS: Record<(typeof VENUE_NAMES)[number], string> = {
   'Boulder Public Library': 'https://maps.google.com/?q=Boulder+Public+Library',
   'Brand Studios': 'https://maps.google.com/?q=Brand+Studios',
   'Canyon Center': 'https://maps.google.com/?q=Canyon+Center',
+  'RegenHub': 'https://maps.google.com/?q=RegenHub+1515+Walnut+St+Boulder+CO',
   'Rosetta Hall': 'https://maps.google.com/?q=Rosetta+Hall',
+  'Siena Square': 'https://maps.google.com/?q=Siena+Square+2060+Broadway+Boulder+CO',
   SOVRN: 'https://maps.google.com/?q=SOVRN',
 }
