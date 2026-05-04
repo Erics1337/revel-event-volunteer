@@ -1088,13 +1088,13 @@ function ShiftDayGroups({
         return (
           <section
             key={group.day}
-            className="overflow-hidden rounded-2xl border border-[#dfe8e8] bg-white shadow-[0_12px_34px_rgba(49,88,92,0.08)]"
+            className="overflow-visible rounded-2xl border border-[#dfe8e8] bg-white shadow-[0_12px_34px_rgba(49,88,92,0.08)]"
           >
             <button
               type="button"
               onClick={() => toggleDay(group.day)}
               aria-expanded={!collapsed}
-              className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-[#e4eeee] bg-[linear-gradient(135deg,#f6fbfb_0%,#fff8ef_100%)] px-4 py-3 text-left transition hover:brightness-[0.99]"
+              className="flex w-full flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[#e4eeee] bg-[linear-gradient(135deg,#f6fbfb_0%,#fff8ef_100%)] px-4 py-3 text-left transition hover:brightness-[0.99]"
             >
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7bb8bc]">
@@ -1125,7 +1125,7 @@ function ShiftDayGroups({
               </span>
             </button>
             {!collapsed ? (
-              <div className="grid gap-2 bg-[#f7fbfb] p-2 lg:grid-cols-2">
+              <div className="grid gap-2 rounded-b-2xl bg-[#f7fbfb] p-2 lg:grid-cols-2">
                 {group.shifts.map((shift) => (
                   <div
                     key={shift.id}
