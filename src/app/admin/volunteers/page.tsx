@@ -35,10 +35,29 @@ interface ReminderSettingsState {
   time_zone: string
 }
 
-type ReminderModalView = 'settings' | 'messages'
+type ReminderModalView = 'settings' | 'messages' | 'results'
 
 interface SendMessageResponse {
   error?: string
+}
+
+interface EmailResult {
+  id: string
+  type: string
+  status: string
+  subject: string
+  recipient_email: string | null
+  scheduled_for: string
+  sent_at: string | null
+  error_message: string | null
+  created_at: string | null
+}
+
+interface EmailResultSummary {
+  sent: number
+  failed: number
+  pending: number
+  other: number
 }
 
 export default function AdminVolunteersPage() {
@@ -67,6 +86,14 @@ export default function AdminVolunteersPage() {
   const [scheduledMessageNotice, setScheduledMessageNotice] = useState<string | null>(null)
   const [sendingTestReminder, setSendingTestReminder] = useState(false)
   const [testReminderNotice, setTestReminderNotice] = useState<string | null>(null)
+  const [emailResults, setEmailResults] = useState<EmailResult[]>([])
+  const [emailResultSummary, setEmailResultSummary] = useState<EmailResultSummary>({
+    sent: 0,
+    failed: 0,
+    pending: 0,
+    other: 0,
+  })
+  const [loadingEmailResults, setLoadingEmailResults] = useState(false)
 
   const openReminderModal = useCallback((day?: string) => {
     setScheduledMessageNotice(null)
@@ -77,6 +104,33 @@ export default function AdminVolunteersPage() {
       setReminderModalView('messages')
     }
     setReminderModal(true)
+  }, [])
+
+  const loadEmailResults = useCallback(async () => {
+    setLoadingEmailResults(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/notifications/results')
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to load email results')
+      }
+
+      setEmailResults((payload.notifications || []) as EmailResult[])
+      setEmailResultSummary({
+        sent: payload.summary?.sent || 0,
+        failed: payload.summary?.failed || 0,
+        pending: payload.summary?.pending || 0,
+        other: payload.summary?.other || 0,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load email results'
+      setErrorMessage(message)
+    } finally {
+      setLoadingEmailResults(false)
+    }
   }, [])
 
   const refresh = useCallback(async () => {
@@ -173,6 +227,18 @@ export default function AdminVolunteersPage() {
       window.clearTimeout(timeoutId)
     }
   }, [authLoading, profile, refresh])
+
+  useEffect(() => {
+    if (!reminderModal || reminderModalView !== 'results') return
+
+    const timeoutId = window.setTimeout(() => {
+      void loadEmailResults()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [loadEmailResults, reminderModal, reminderModalView])
 
   const volunteerById = useMemo(
     () => new Map(volunteers.map((volunteer) => [volunteer.id, volunteer])),
@@ -704,10 +770,11 @@ export default function AdminVolunteersPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-1 rounded-md border border-gray-border bg-gray-light p-1">
+              <div className="grid grid-cols-3 gap-1 rounded-md border border-gray-border bg-gray-light p-1">
                 {[
                   ['settings', 'Reminder settings'],
                   ['messages', 'Messages'],
+                  ['results', 'Email results'],
                 ].map(([view, label]) => (
                   <button
                     key={view}
@@ -923,6 +990,101 @@ export default function AdminVolunteersPage() {
                     </div>
                   </div>
                 </div>
+                </div>
+              )}
+
+              {reminderModalView === 'results' && (
+                <div className="grid gap-4">
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    {[
+                      { label: 'Sent', value: emailResultSummary.sent, colorClass: 'text-green-700' },
+                      { label: 'Failed', value: emailResultSummary.failed, colorClass: 'text-red-700' },
+                      { label: 'Pending', value: emailResultSummary.pending, colorClass: 'text-amber-700' },
+                      { label: 'Other', value: emailResultSummary.other, colorClass: 'text-gray-text' },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-md border border-gray-border p-3">
+                        <p className="text-xs uppercase tracking-wide text-gray-text">{item.label}</p>
+                        <p className={`mt-1 text-2xl font-semibold ${item.colorClass}`}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-md border border-gray-border p-4">
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-charcoal">Recent email activity</p>
+                        <p className="text-sm text-gray-text">
+                          Shows the latest reminder and admin message email records.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadEmailResults()}
+                        disabled={loadingEmailResults}
+                        className="btn-secondary"
+                      >
+                        {loadingEmailResults ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {emailResults.length === 0 ? (
+                      <p className="text-sm text-gray-text">
+                        {loadingEmailResults ? 'Loading email results...' : 'No email results found yet.'}
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-border text-sm">
+                          <thead>
+                            <tr className="text-left text-xs uppercase tracking-wide text-gray-text">
+                              <th className="py-2 pr-4 font-medium">Status</th>
+                              <th className="py-2 pr-4 font-medium">Type</th>
+                              <th className="py-2 pr-4 font-medium">Subject</th>
+                              <th className="py-2 pr-4 font-medium">Recipient</th>
+                              <th className="py-2 pr-4 font-medium">Time</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-border">
+                            {emailResults.map((result) => {
+                              const timestamp = result.sent_at || result.created_at || result.scheduled_for
+                              const statusClass =
+                                result.status === 'sent'
+                                  ? 'bg-green-50 text-green-700'
+                                  : result.status === 'failed'
+                                    ? 'bg-red-50 text-red-700'
+                                    : 'bg-amber-50 text-amber-700'
+
+                              return (
+                                <tr key={result.id}>
+                                  <td className="py-3 pr-4 align-top">
+                                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass}`}>
+                                      {result.status}
+                                    </span>
+                                    {result.error_message && (
+                                      <p className="mt-1 max-w-xs text-xs text-red-700">
+                                        {result.error_message}
+                                      </p>
+                                    )}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top text-gray-text">
+                                    {result.type.replaceAll('_', ' ')}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top text-charcoal">
+                                    {result.subject}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top text-gray-text">
+                                    {result.recipient_email || 'Account email'}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top text-gray-text">
+                                    {new Date(timestamp).toLocaleString()}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

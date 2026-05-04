@@ -59,7 +59,6 @@ function RequiredProfileModalBody({
   const [name, setName] = useState(profile.name ?? '')
   const [phone, setPhone] = useState(profile.phone ?? '')
   const [savedAvailability, setSavedAvailability] = useState<string[]>([])
-  const [availability, setAvailability] = useState<string[]>([])
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
@@ -84,7 +83,6 @@ function RequiredProfileModalBody({
         if (!cancelled) {
           const nextAvailability = payload.volunteer?.availability ?? []
           setSavedAvailability(nextAvailability)
-          setAvailability(nextAvailability.length > 0 ? nextAvailability : DEFAULT_AVAILABILITY)
         }
       } catch (error) {
         if (!cancelled) {
@@ -94,7 +92,6 @@ function RequiredProfileModalBody({
               : 'Could not load volunteer setup. Please try again.'
           )
           setSavedAvailability([])
-          setAvailability(DEFAULT_AVAILABILITY)
         }
       } finally {
         if (!cancelled) {
@@ -110,16 +107,10 @@ function RequiredProfileModalBody({
     }
   }, [])
 
-  const toggleAvailabilityDay = (day: string) => {
-    setAvailability((current) =>
-      current.includes(day) ? current.filter((value) => value !== day) : [...current, day]
-    )
-  }
-
   const isComplete =
     profile.name.trim().length > 0 &&
     (profile.phone?.trim().length ?? 0) > 0 &&
-    savedAvailability.length > 0
+    (savedAvailability.length > 0 || availabilityLoaded)
 
   useEffect(() => {
     if (!completed) return
@@ -168,11 +159,6 @@ function RequiredProfileModalBody({
       setError('Phone number is required.')
       return
     }
-    if (availability.length === 0) {
-      setError('Select at least one day you are available.')
-      return
-    }
-
     setSubmitting(true)
     try {
       const response = await fetch('/api/volunteers/me', {
@@ -181,7 +167,7 @@ function RequiredProfileModalBody({
         body: JSON.stringify({
           name: trimmedName,
           phone: trimmed,
-          availability,
+          availability: DEFAULT_AVAILABILITY,
         }),
       })
 
@@ -194,7 +180,7 @@ function RequiredProfileModalBody({
 
       await refreshProfile()
       window.sessionStorage.setItem(completionStorageKey, '1')
-      setSavedAvailability(availability)
+      setSavedAvailability(DEFAULT_AVAILABILITY)
       setCompleted(true)
       setSubmitting(false)
     } catch {
@@ -217,7 +203,7 @@ function RequiredProfileModalBody({
           </h2>
           {completed ? null : (
             <p className="text-gray-text text-sm">
-              We need your name, phone number, and volunteer availability before you can request shifts.
+              We need your name and phone number before you can request shifts.
             </p>
           )}
           {!completed && user.email && (
@@ -278,34 +264,6 @@ function RequiredProfileModalBody({
             />
             <p className="mt-1 text-xs text-gray-text">
               Used for shift reminders and day-of coordination only.
-            </p>
-          </div>
-
-          <div>
-            <p className="block text-sm font-medium text-gray-700 mb-2">Days you can volunteer</p>
-            <div className="flex flex-wrap gap-2">
-              {EVENT_DAYS.map((day) => {
-                const active = availability.includes(day.date)
-
-                return (
-                  <button
-                    key={day.date}
-                    type="button"
-                    onClick={() => toggleAvailabilityDay(day.date)}
-                    className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
-                      active
-                        ? 'border-teal bg-teal text-white'
-                        : 'border-gray-border bg-white text-gray-700 hover:border-teal hover:text-teal'
-                    }`}
-                    aria-pressed={active}
-                  >
-                    {day.label}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="mt-1 text-xs text-gray-text">
-              Pick every day you would be open to helping during Boulder Startup Week.
             </p>
           </div>
 
