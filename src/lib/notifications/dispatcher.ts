@@ -32,6 +32,7 @@ interface Notification {
   id: string
   user_id: string | null
   recipient_email: string | null
+  delivery_scope: string | null
   type: string
   subject: string
   body: string
@@ -222,6 +223,7 @@ export async function queueConfirmation(volunteerId: string, shiftId: string): P
     .insert({
       user_id: volunteer.user_id,
       recipient_email: email,
+      delivery_scope: 'confirmation',
       type: 'volunteer_confirmation',
       subject: template.subject,
       body: template.html,
@@ -418,6 +420,7 @@ export async function runReminderDispatch(options?: {
         .insert({
           user_id: volunteer.user_id,
           recipient_email: volunteer.email,
+          delivery_scope: 'reminder',
           type: rule.type,
           subject: template.subject,
           body: template.html,
@@ -485,6 +488,7 @@ export async function sendBulkMessage(
   message: string,
   options?: {
     scheduledFor?: string
+    deliveryScope?: 'direct' | 'bulk' | 'scheduled_day'
   }
 ) {
   const supabase = await createClient()
@@ -514,6 +518,7 @@ export async function sendBulkMessage(
   let queued = 0
   const scheduledFor = options?.scheduledFor ?? getImmediateSchedule()
   const sendImmediately = !options?.scheduledFor
+  const deliveryScope = options?.deliveryScope ?? (volunteers.length === 1 ? 'direct' : 'bulk')
 
   for (const volunteerData of volunteers) {
     const volunteer = volunteerData as any
@@ -527,6 +532,7 @@ export async function sendBulkMessage(
       .insert({
         user_id: volunteer.user_id,
         recipient_email: email,
+        delivery_scope: deliveryScope,
         type: 'admin_message',
         subject: template.subject,
         body: template.html,
@@ -587,6 +593,7 @@ export async function queueTestReminderEmail(options: {
     .insert({
       user_id: options.userId,
       recipient_email: options.email,
+      delivery_scope: 'test',
       type: 'admin_message',
       subject: `[Test] ${template.subject}`,
       body: template.html,
@@ -677,6 +684,7 @@ export async function sendReminder24hForShiftIds(shiftIds?: string[]) {
       .insert({
         user_id: volunteer.user_id,
         recipient_email: volunteer.email,
+        delivery_scope: 'reminder',
         type: 'reminder_24h',
         subject: template.subject,
         body: template.html,

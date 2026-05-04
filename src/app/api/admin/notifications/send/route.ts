@@ -93,6 +93,11 @@ export async function POST(request: Request) {
 
     const result = await sendBulkMessage(targetVolunteerIds, subject, message, {
       scheduledFor,
+      deliveryScope: scheduledFor
+        ? 'scheduled_day'
+        : targetVolunteerIds.length === 1
+          ? 'direct'
+          : 'bulk',
     })
 
     return NextResponse.json({

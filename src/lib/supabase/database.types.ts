@@ -122,6 +122,7 @@ export type Database = {
         Row: {
           body: string
           created_at: string | null
+          delivery_scope: string | null
           error_message: string | null
           id: string
           recipient_email: string | null
@@ -136,6 +137,7 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string | null
+          delivery_scope?: string | null
           error_message?: string | null
           id?: string
           recipient_email?: string | null
@@ -150,6 +152,7 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string | null
+          delivery_scope?: string | null
           error_message?: string | null
           id?: string
           recipient_email?: string | null

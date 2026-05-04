@@ -44,6 +44,7 @@ interface SendMessageResponse {
 interface EmailResult {
   id: string
   type: string
+  delivery_scope: string | null
   status: string
   subject: string
   recipient_email: string | null
@@ -1037,7 +1038,7 @@ export default function AdminVolunteersPage() {
                           <thead>
                             <tr className="text-left text-xs uppercase tracking-wide text-gray-text">
                               <th className="py-2 pr-4 font-medium">Status</th>
-                              <th className="py-2 pr-4 font-medium">Type</th>
+                              <th className="py-2 pr-4 font-medium">Message kind</th>
                               <th className="py-2 pr-4 font-medium">Subject</th>
                               <th className="py-2 pr-4 font-medium">Recipient</th>
                               <th className="py-2 pr-4 font-medium">Time</th>
@@ -1052,6 +1053,9 @@ export default function AdminVolunteersPage() {
                                   : result.status === 'failed'
                                     ? 'bg-red-50 text-red-700'
                                     : 'bg-amber-50 text-amber-700'
+                              const messageKind = result.delivery_scope
+                                ? result.delivery_scope.replaceAll('_', ' ')
+                                : result.type.replaceAll('_', ' ')
 
                               return (
                                 <tr key={result.id}>
@@ -1066,7 +1070,7 @@ export default function AdminVolunteersPage() {
                                     )}
                                   </td>
                                   <td className="py-3 pr-4 align-top text-gray-text">
-                                    {result.type.replaceAll('_', ' ')}
+                                    {messageKind}
                                   </td>
                                   <td className="py-3 pr-4 align-top text-charcoal">
                                     {result.subject}
