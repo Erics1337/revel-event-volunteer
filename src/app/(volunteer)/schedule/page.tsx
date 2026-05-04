@@ -12,8 +12,21 @@ interface Shift {
   start_time: string
   end_time: string
   location: string
+  address?: string | null
+  event_session_id?: string | null
+  event_session?: EventSession | null
   total_slots: number
   filled_slots: number
+}
+
+interface EventSession {
+  id: string
+  title: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+  address?: string | null
 }
 
 interface Assignment {
@@ -41,6 +54,10 @@ function formatDay(day: string) {
 function formatTimeRange(start: string, end: string) {
   // DB stores HH:MM strings.
   return `${start} – ${end}`
+}
+
+function getShiftLocation(shift: Shift) {
+  return shift.event_session?.location || shift.location
 }
 
 export default function SchedulePage() {
@@ -195,7 +212,7 @@ export default function SchedulePage() {
                         </div>
                         <p className="text-sm text-gray-text mt-1">
                           {formatTimeRange(assignment.shift.start_time, assignment.shift.end_time)} ·{' '}
-                          {assignment.shift.location}
+                          Event location: {getShiftLocation(assignment.shift)}
                         </p>
                       </div>
                       <button
@@ -311,7 +328,9 @@ export default function SchedulePage() {
                   pendingRelease.shift.end_time
                 )}
               </p>
-              <p className="mt-1 text-sm text-gray-text">{pendingRelease.shift.location}</p>
+              <p className="mt-1 text-sm text-gray-text">
+                Event location: {getShiftLocation(pendingRelease.shift)}
+              </p>
             </div>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button

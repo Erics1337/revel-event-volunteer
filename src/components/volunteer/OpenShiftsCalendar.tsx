@@ -15,10 +15,22 @@ interface VolunteerShift {
   end_time: string
   location: string
   address?: string | null
+  event_session_id?: string | null
+  event_session?: EventSession | null
   total_slots: number
   filled_slots: number
   urgent: boolean
   notes?: string | null
+}
+
+interface EventSession {
+  id: string
+  title: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+  address?: string | null
 }
 
 interface OpenShiftsCalendarProps {
@@ -67,6 +79,14 @@ function getEventColors(state: ReturnType<typeof getShiftState>) {
   }
 }
 
+function getShiftLocation(shift: VolunteerShift) {
+  return shift.event_session?.location || shift.location
+}
+
+function getShiftAddress(shift: VolunteerShift) {
+  return shift.event_session?.address || shift.address || null
+}
+
 export function OpenShiftsCalendar({
   shifts,
   activeDay,
@@ -92,8 +112,8 @@ export function OpenShiftsCalendar({
           end: combineDayTime(shift.day, shift.end_time),
           ...colors,
           extendedProps: {
-            location: shift.location,
-            address: shift.address,
+            location: getShiftLocation(shift),
+            address: getShiftAddress(shift),
             openSpots,
             totalSlots: shift.total_slots,
             urgent: shift.urgent,

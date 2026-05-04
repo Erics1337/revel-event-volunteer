@@ -8,10 +8,22 @@ export interface VolunteerShift {
   end_time: string
   location: string
   address?: string | null
+  event_session_id?: string | null
+  event_session?: EventSession | null
   total_slots: number
   filled_slots: number
   urgent: boolean
   notes?: string | null
+}
+
+export interface EventSession {
+  id: string
+  title: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+  address?: string | null
 }
 
 export interface AvailableVolunteer {

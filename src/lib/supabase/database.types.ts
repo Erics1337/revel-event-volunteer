@@ -46,6 +46,42 @@ export type Database = {
         }
         Relationships: []
       }
+      event_sessions: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          day: string
+          end_time: string
+          id: string
+          location: string
+          start_time: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          day: string
+          end_time: string
+          id?: string
+          location: string
+          start_time: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          day?: string
+          end_time?: string
+          id?: string
+          location?: string
+          start_time?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       notification_settings: {
         Row: {
           id: string
@@ -268,6 +304,7 @@ export type Database = {
           created_at: string | null
           day: string
           end_time: string
+          event_session_id: string | null
           filled_slots: number | null
           id: string
           location: string
@@ -282,6 +319,7 @@ export type Database = {
           created_at?: string | null
           day: string
           end_time: string
+          event_session_id?: string | null
           filled_slots?: number | null
           id?: string
           location: string
@@ -296,6 +334,7 @@ export type Database = {
           created_at?: string | null
           day?: string
           end_time?: string
+          event_session_id?: string | null
           filled_slots?: number | null
           id?: string
           location?: string
@@ -305,7 +344,15 @@ export type Database = {
           total_slots?: number
           urgent?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "volunteer_shifts_event_session_id_fkey"
+            columns: ["event_session_id"]
+            isOneToOne: false
+            referencedRelation: "event_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       volunteers: {
         Row: {

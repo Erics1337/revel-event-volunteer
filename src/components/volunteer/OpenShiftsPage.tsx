@@ -43,10 +43,22 @@ interface VolunteerShift {
   end_time: string
   location: string
   address?: string | null
+  event_session_id?: string | null
+  event_session?: EventSession | null
   total_slots: number
   filled_slots: number
   urgent: boolean
   notes?: string | null
+}
+
+interface EventSession {
+  id: string
+  title: string
+  day: string
+  start_time: string
+  end_time: string
+  location: string
+  address?: string | null
 }
 
 interface VolunteerAssignment {
@@ -217,7 +229,7 @@ export function OpenShiftsPage() {
         if (!showFullShifts && shift.filled_slots >= shift.total_slots) return false
         if (selectedDay.length > 0 && !selectedDay.includes(shift.day)) return false
         if (selectedRole.length > 0 && !selectedRole.includes(shift.role)) return false
-        if (selectedLocation.length > 0 && !selectedLocation.includes(shift.location)) return false
+        if (selectedLocation.length > 0 && !selectedLocation.includes(getShiftLocation(shift))) return false
         if (selectedTime.length > 0 && !selectedTime.includes(shift.start_time)) return false
         return true
       }),
@@ -268,7 +280,7 @@ export function OpenShiftsPage() {
   const roles = Array.from(new Set(shifts.map((shift) => shift.role))).sort((a, b) =>
     a.localeCompare(b)
   )
-  const locations = Array.from(new Set(shifts.map((shift) => shift.location)))
+  const locations = Array.from(new Set(shifts.map((shift) => getShiftLocation(shift))))
 
   const timeOptions = Array.from(new Set(shifts.map((shift) => shift.start_time)))
     .sort((a, b) => a.localeCompare(b))
@@ -372,7 +384,7 @@ export function OpenShiftsPage() {
       }
 
       await Promise.all([loadShifts(), loadContext()])
-      const locationLabel = [shift.location, shift.address].filter(Boolean).join(', ')
+      const locationLabel = [getShiftLocation(shift), getShiftAddress(shift)].filter(Boolean).join(', ')
       setRequestFeedback({
         tone: 'success',
         title: 'You are signed up',
@@ -820,24 +832,22 @@ export function OpenShiftsPage() {
                   <ClockIcon />
                   <span>{formatTimeLabel(confirmShift.start_time)} – {formatTimeLabel(confirmShift.end_time)}</span>
                 </div>
-                <a
-                  href={getDirectionsHref(confirmShift)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group/location flex min-w-0 items-center gap-2 transition hover:text-[#4f9da2] focus:outline-none focus:ring-2 focus:ring-[#cde7e7]"
-                  aria-label={
-                    confirmShift.address
-                      ? `Open ${confirmShift.location}, ${confirmShift.address} in Google Maps`
-                      : `Open ${confirmShift.location} in Google Maps`
-                  }
-                >
+                <div className="flex items-center gap-2">
                   <PinIcon />
-                  <span className="min-w-0 underline-offset-2 group-hover/location:underline group-focus/location:underline">
-                    {confirmShift.location}
-                    {confirmShift.address ? `, ${confirmShift.address}` : ''}
+                  <span>
+                    Event location: {getShiftLocation(confirmShift)}
+                    {getShiftAddress(confirmShift) ? `, ${getShiftAddress(confirmShift)}` : ''}
                   </span>
-                </a>
+                </div>
               </div>
+              <a
+                href={getDirectionsHref(confirmShift)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex text-sm font-semibold text-[#5aaeb3] underline underline-offset-2 transition hover:text-[#4f9da2]"
+              >
+                Open directions
+              </a>
               <p className="mt-4 text-sm leading-6 text-[#6f7883]">
                 Ready to sign up for this shift? You can cancel later from your schedule.
               </p>
@@ -1262,12 +1272,15 @@ function ShiftCard({
             }
           >
             <PinIcon />
-            <span className="truncate font-semibold text-[#4c5662] underline-offset-2 group-hover/location:text-[#4f9da2] group-hover/location:underline group-focus/location:text-[#4f9da2] group-focus/location:underline">
-              {shift.location}
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.04em] text-[#7f8691]">
+              Event
             </span>
-            {shift.address ? (
+            <span className="truncate font-semibold text-[#4c5662] underline-offset-2 group-hover/location:text-[#4f9da2] group-hover/location:underline group-focus/location:text-[#4f9da2] group-focus/location:underline">
+              {getShiftLocation(shift)}
+            </span>
+            {getShiftAddress(shift) ? (
               <span className="pointer-events-none absolute left-0 top-6 z-20 hidden max-w-[18rem] rounded-xl border border-[#dbe7e8] bg-white px-3 py-2 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] group-hover/location:block group-focus/location:block">
-                {shift.address}
+                {getShiftAddress(shift)}
               </span>
             ) : null}
           </a>
@@ -1341,8 +1354,16 @@ function formatTimeLabel(time: string) {
   })
 }
 
-function getDirectionsHref(shift: Pick<VolunteerShift, 'location' | 'address'>) {
-  const query = [shift.location, shift.address].filter(Boolean).join(', ')
+function getShiftLocation(shift: Pick<VolunteerShift, 'location' | 'event_session'>) {
+  return shift.event_session?.location || shift.location
+}
+
+function getShiftAddress(shift: Pick<VolunteerShift, 'address' | 'event_session'>) {
+  return shift.event_session?.address || shift.address || null
+}
+
+function getDirectionsHref(shift: Pick<VolunteerShift, 'location' | 'address' | 'event_session'>) {
+  const query = [getShiftLocation(shift), getShiftAddress(shift)].filter(Boolean).join(', ')
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 

@@ -36,6 +36,10 @@ function buildCalendarFile(
       end_time: string
       location: string
       address: string | null
+      event_session: {
+        location: string
+        address: string | null
+      } | null
     } | null
   }>
 ) {
@@ -55,7 +59,11 @@ function buildCalendarFile(
           end_time: string
           location: string
           address: string | null
-            }
+          event_session: {
+            location: string
+            address: string | null
+          } | null
+        }
       } => Boolean(assignment.shift)
     )
     .sort((left, right) => {
@@ -64,13 +72,15 @@ function buildCalendarFile(
     })
     .map((assignment) => {
       const summary = escapeCalendarText(`BSW Volunteer Shift: ${assignment.shift.role}`)
-      const locationParts = [assignment.shift.location, assignment.shift.address].filter(Boolean)
+      const eventLocation = assignment.shift.event_session?.location || assignment.shift.location
+      const eventAddress = assignment.shift.event_session?.address || assignment.shift.address
+      const locationParts = [eventLocation, eventAddress].filter(Boolean)
       const location = escapeCalendarText(locationParts.join(', '))
       const description = escapeCalendarText(
         [
           `Role: ${assignment.shift.role}`,
-          `Location: ${assignment.shift.location}`,
-          assignment.shift.address ? `Address: ${assignment.shift.address}` : null,
+          `Location: ${eventLocation}`,
+          eventAddress ? `Address: ${eventAddress}` : null,
         ]
           .filter(Boolean)
           .join('\n')
@@ -138,6 +148,10 @@ export async function GET() {
       end_time: string
       location: string
       address: string | null
+      event_session: {
+        location: string
+        address: string | null
+      } | null
     } | null
   }> = []
 
@@ -154,7 +168,11 @@ export async function GET() {
             start_time,
             end_time,
             location,
-            address
+            address,
+            event_session:event_sessions (
+              location,
+              address
+            )
           )
         `
       )

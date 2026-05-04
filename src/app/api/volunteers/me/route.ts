@@ -52,7 +52,28 @@ export async function GET() {
   const { data: shifts, error: shiftsError } = shiftIds.length
     ? await supabase
         .from('volunteer_shifts')
-        .select('id, role, day, start_time, end_time, location, address, total_slots, filled_slots, urgent')
+        .select(`
+          id,
+          role,
+          day,
+          start_time,
+          end_time,
+          location,
+          address,
+          event_session_id,
+          total_slots,
+          filled_slots,
+          urgent,
+          event_session:event_sessions (
+            id,
+            title,
+            day,
+            start_time,
+            end_time,
+            location,
+            address
+          )
+        `)
         .in('id', shiftIds)
     : { data: [], error: null }
 
