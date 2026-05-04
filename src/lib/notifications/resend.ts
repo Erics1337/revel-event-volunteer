@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'volunteers@boulderstartupweek.com'
-const REPLY_TO_EMAILS = (process.env.RESEND_REPLY_TO_EMAILS || 'stuhldreheremily@gmail.com,ana.r.montgomery@gmail.com,hmeibling@gmail.com')
+const REPLY_TO_EMAILS = (process.env.RESEND_REPLY_TO_EMAILS || 'stuhldreheremily@gmail.com,jana.r.montgomery@gmail.com,hmeibling@gmail.com')
   .split(',')
   .map((email) => email.trim())
   .filter(Boolean)
