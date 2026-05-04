@@ -1198,7 +1198,7 @@ function ShiftCard({
 
   return (
     <article
-      className={`group relative h-full overflow-visible rounded-xl border border-[#e4eeee] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition ${
+      className={`group relative h-full overflow-visible rounded-xl border border-[#e4eeee] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:z-30 focus-within:z-30 ${
         highlight
           ? 'relative z-[1] border-[#6aa9ae] ring-2 ring-[#cde7e7] shadow-[0_0_0_6px_rgba(214,236,237,0.45)]'
           : 'hover:border-[#cde7e7] hover:shadow-[0_10px_24px_rgba(49,88,92,0.08)]'
@@ -1238,7 +1238,7 @@ function ShiftCard({
               >
                 i
               </button>
-              <div className="pointer-events-none absolute left-0 top-7 z-20 hidden w-72 rounded-xl border border-[#dbe7e8] bg-white p-3 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] peer-hover:block peer-focus:block">
+              <div className="pointer-events-none absolute left-0 top-7 z-50 hidden w-72 rounded-xl border border-[#dbe7e8] bg-white p-3 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] peer-hover:block peer-focus:block">
                 <p className="mb-1 font-semibold text-[#3f4a56]">What you’ll do</p>
                 <p>{description}</p>
               </div>
@@ -1279,7 +1279,7 @@ function ShiftCard({
               {getShiftLocation(shift)}
             </span>
             {getShiftAddress(shift) ? (
-              <span className="pointer-events-none absolute left-0 top-6 z-20 hidden max-w-[18rem] rounded-xl border border-[#dbe7e8] bg-white px-3 py-2 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] group-hover/location:block group-focus/location:block">
+              <span className="pointer-events-none absolute left-0 top-6 z-50 hidden max-w-[18rem] rounded-xl border border-[#dbe7e8] bg-white px-3 py-2 text-xs leading-5 text-[#5f6772] shadow-[0_14px_32px_rgba(15,23,42,0.14)] group-hover/location:block group-focus/location:block">
                 {getShiftAddress(shift)}
               </span>
             ) : null}
