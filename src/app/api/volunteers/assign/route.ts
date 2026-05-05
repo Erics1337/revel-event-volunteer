@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/roles'
 import { getAssignedCountForShift } from '@/lib/shifts/availability'
 import { NextResponse } from 'next/server'
@@ -113,6 +113,7 @@ async function findOrCreateContactVolunteer(
 
 export async function POST(request: Request) {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: shift, error: shiftError } = await supabase
+    const { data: shift, error: shiftError } = await adminSupabase
       .from('volunteer_shifts')
       .select('id, day, start_time, end_time, total_slots, filled_slots')
       .eq('id', shiftId)
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
     let resolvedVolunteerId = volunteerId as string | undefined
 
     if (!resolvedVolunteerId && volunteerContact) {
-      const result = await findOrCreateContactVolunteer(supabase, volunteerContact, shift.day)
+      const result = await findOrCreateContactVolunteer(adminSupabase, volunteerContact, shift.day)
       if (result.error || !result.volunteer) {
         return NextResponse.json(
           { error: result.error || 'Failed to create volunteer contact' },
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Volunteer is required' }, { status: 400 })
     }
 
-    const { data: volunteer, error: volunteerError } = await supabase
+    const { data: volunteer, error: volunteerError } = await adminSupabase
       .from('volunteers')
       .select(`
         id,
@@ -204,7 +205,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { count: assignedCount, error: assignedCountError } = await getAssignedCountForShift(supabase, shift.id)
+    const { count: assignedCount, error: assignedCountError } = await getAssignedCountForShift(adminSupabase, shift.id)
 
     if (assignedCountError) {
       return NextResponse.json({ error: assignedCountError.message }, { status: 500 })
@@ -221,7 +222,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
     }
 
-    const { data: existingAssignment, error: existingAssignmentError } = await supabase
+    const { data: existingAssignment, error: existingAssignmentError } = await adminSupabase
       .from('volunteer_assignments')
       .select('id, status')
       .eq('volunteer_id', resolvedVolunteerId)
@@ -236,7 +237,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Already assigned to this shift' }, { status: 409 })
     }
 
-    const { data: activeAssignments, error: activeAssignmentsError } = await supabase
+    const { data: activeAssignments, error: activeAssignmentsError } = await adminSupabase
       .from('volunteer_assignments')
       .select(`
         id,
@@ -296,7 +297,7 @@ export async function POST(request: Request) {
     }
 
     const mutation = existingAssignment
-      ? supabase
+      ? adminSupabase
           .from('volunteer_assignments')
           .update({
             status: 'assigned',
@@ -305,7 +306,7 @@ export async function POST(request: Request) {
           .eq('id', existingAssignment.id)
           .select()
           .single()
-      : supabase
+      : adminSupabase
           .from('volunteer_assignments')
           .insert({
             volunteer_id: resolvedVolunteerId,
@@ -325,7 +326,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: mutationError.message }, { status: 500 })
     }
 
-    await recalculateAssignedShiftCount(supabase, resolvedVolunteerId)
+    await recalculateAssignedShiftCount(adminSupabase, resolvedVolunteerId)
 
     return NextResponse.json({ assignment }, { status: 201 })
   } catch {
@@ -335,6 +336,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -361,7 +363,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'volunteerId and shiftId are required' }, { status: 400 })
     }
 
-    const { data: assignment, error: lookupError } = await supabase
+    const { data: assignment, error: lookupError } = await adminSupabase
       .from('volunteer_assignments')
       .select('id, status')
       .eq('volunteer_id', volunteerId)
@@ -376,7 +378,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
     }
 
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('volunteer_assignments')
       .update({ status: 'cancelled' })
       .eq('id', assignment.id)
@@ -385,7 +387,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    await recalculateAssignedShiftCount(supabase, volunteerId)
+    await recalculateAssignedShiftCount(adminSupabase, volunteerId)
 
     return NextResponse.json({ success: true })
   } catch {
