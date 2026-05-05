@@ -375,6 +375,17 @@ export function OpenShiftsPage() {
           return
         }
 
+        if (payload.code === 'SHIFT_NOT_FOUND') {
+          await Promise.all([loadShifts(), loadContext()])
+          setRequestFeedback({
+            tone: 'error',
+            title: 'This shift changed',
+            description:
+              'This shift was updated or removed. Please choose from the refreshed shift list.',
+          })
+          return
+        }
+
         setRequestFeedback({
           tone: 'error',
           title: 'Could not sign you up',
