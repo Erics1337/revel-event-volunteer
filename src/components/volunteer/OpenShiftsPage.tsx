@@ -146,7 +146,9 @@ export function OpenShiftsPage() {
       throw new Error(payload.error || 'Failed to load volunteer shifts')
     }
 
-    setShifts(payload.shifts || [])
+    const nextShifts = payload.shifts || []
+    setShifts(nextShifts)
+    return nextShifts
   }, [])
 
   const loadContext = useCallback(async () => {
@@ -375,13 +377,30 @@ export function OpenShiftsPage() {
           return
         }
 
-        if (payload.code === 'SHIFT_NOT_FOUND') {
+        if (payload.code === 'SHIFT_FULL') {
           await Promise.all([loadShifts(), loadContext()])
           setRequestFeedback({
             tone: 'error',
-            title: 'This shift changed',
+            title: 'This shift is full',
             description:
-              'This shift was updated or removed. Please choose from the refreshed shift list.',
+              'Someone is already covering this shift. Please choose another open shift from the refreshed list.',
+          })
+          return
+        }
+
+        if (payload.code === 'SHIFT_NOT_FOUND') {
+          const [nextShifts] = await Promise.all([loadShifts(), loadContext()])
+          const refreshedShift = nextShifts.find((item) => item.id === shift.id)
+          const isNowFull = refreshedShift
+            ? refreshedShift.filled_slots >= refreshedShift.total_slots
+            : false
+
+          setRequestFeedback({
+            tone: 'error',
+            title: isNowFull ? 'This shift is full' : 'This shift changed',
+            description: isNowFull
+              ? 'Someone is already covering this shift. Please choose another open shift from the refreshed list.'
+              : 'This shift was updated or removed. Please choose from the refreshed shift list.',
           })
           return
         }
