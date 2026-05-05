@@ -137,6 +137,16 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: assignedCountError.message }, { status: 500 })
   }
 
+  if (assignedCount === null) {
+    return NextResponse.json(
+      {
+        error: `Assigned count is unavailable for shift ${shift.id}; cannot compare against total_slots ${shift.total_slots}`,
+        code: 'ASSIGNED_COUNT_UNAVAILABLE',
+      },
+      { status: 500 }
+    )
+  }
+
   if (assignedCount >= shift.total_slots) {
     return NextResponse.json({ error: 'This shift is already full', code: 'SHIFT_FULL' }, { status: 409 })
   }

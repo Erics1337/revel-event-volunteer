@@ -46,7 +46,7 @@ export async function getAssignedCountForShift(
     .eq('shift_id', shiftId)
     .eq('status', 'assigned')
 
-  return { count: count ?? 0, error }
+  return { count, error }
 }
 
 export async function applyComputedFilledSlots<T extends { id: string; filled_slots?: number | null }>(
