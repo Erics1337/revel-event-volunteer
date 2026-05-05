@@ -1,9 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { applyComputedFilledSlots } from '@/lib/shifts/availability'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   try {
     const { data: shifts, error } = await supabase
@@ -37,7 +41,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const computed = await applyComputedFilledSlots(supabase, shifts || [])
+    const computed = await applyComputedFilledSlots(adminSupabase, shifts || [])
 
     if (computed.error) {
       console.error('Error computing volunteer shift availability:', computed.error)
