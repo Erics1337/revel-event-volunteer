@@ -211,7 +211,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const mutation = existing
-    ? supabase
+    ? adminSupabase
         .from('volunteer_assignments')
         .update({
           status: 'assigned',
@@ -220,7 +220,7 @@ export async function POST(request: Request): Promise<Response> {
         .eq('id', existing.id)
         .select('id, shift_id, volunteer_id, assigned_at, status')
         .single()
-    : supabase
+    : adminSupabase
         .from('volunteer_assignments')
         .insert({
           volunteer_id: volunteer.id,
@@ -240,7 +240,7 @@ export async function POST(request: Request): Promise<Response> {
       )
     }
 
-    if (mutationError.message.includes('Shift is already full')) {
+    if (mutationError.code === '23514' || mutationError.message.includes('Shift is already full')) {
       return NextResponse.json({ error: 'This shift is already full', code: 'SHIFT_FULL' }, { status: 409 })
     }
 
@@ -256,6 +256,7 @@ export async function DELETE(request: Request) {
   const { supabase, volunteer, error } = await getVolunteerForUser()
   if (error) return error
   if (!volunteer) return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 })
+  const adminSupabase = createAdminClient()
 
   const { searchParams } = new URL(request.url)
   const shiftId = searchParams.get('shiftId')
@@ -279,7 +280,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'No active request found' }, { status: 404 })
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await adminSupabase
     .from('volunteer_assignments')
     .update({ status: 'cancelled' })
     .eq('id', existing.id)
