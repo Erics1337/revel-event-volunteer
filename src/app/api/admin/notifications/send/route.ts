@@ -31,7 +31,10 @@ function getTimeZoneOffsetMilliseconds(date: Date, timeZone: string) {
 }
 
 function getStartOfDaySchedule(day: string, timeZone: string) {
-  const guess = new Date(`${day}T00:00:00Z`)
+  const dayBefore = new Date(`${day}T00:00:00Z`)
+  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1)
+  const previousDay = dayBefore.toISOString().slice(0, 10)
+  const guess = new Date(`${previousDay}T20:00:00Z`)
   const offset = getTimeZoneOffsetMilliseconds(guess, timeZone)
   return new Date(guess.getTime() - offset).toISOString()
 }

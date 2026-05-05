@@ -917,7 +917,7 @@ export default function AdminVolunteersPage() {
                       <p className="text-sm font-medium text-charcoal">Start-of-day broadcast</p>
                       <p className="text-sm text-gray-text">
                         Queue a day-specific volunteer email now and have it send automatically at
-                        the start of that day in America/Denver.
+                        8:00 PM the night before in America/Denver.
                       </p>
                     </div>
 
