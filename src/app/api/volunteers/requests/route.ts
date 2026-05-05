@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getAssignedCountForShift } from '@/lib/shifts/availability'
 
 async function getVolunteerForUser() {
@@ -65,6 +65,7 @@ export async function POST(request: Request): Promise<Response> {
   const { supabase, volunteer, error } = await getVolunteerForUser()
   if (error) return error ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!volunteer) return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 })
+  const adminSupabase = createAdminClient()
 
   let body: unknown
   try {
@@ -131,7 +132,7 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const { count: assignedCount, error: assignedCountError } = await getAssignedCountForShift(supabase, shift.id)
+  const { count: assignedCount, error: assignedCountError } = await getAssignedCountForShift(adminSupabase, shift.id)
 
   if (assignedCountError) {
     return NextResponse.json({ error: assignedCountError.message }, { status: 500 })
@@ -232,6 +233,13 @@ export async function POST(request: Request): Promise<Response> {
   const { data: assignment, error: mutationError } = await mutation
 
   if (mutationError) {
+    if (mutationError.code === '23503' && mutationError.message.includes('Shift not found')) {
+      return NextResponse.json(
+        { error: 'Shift not found', code: 'SHIFT_NOT_FOUND' },
+        { status: 404 }
+      )
+    }
+
     if (mutationError.message.includes('Shift is already full')) {
       return NextResponse.json({ error: 'This shift is already full', code: 'SHIFT_FULL' }, { status: 409 })
     }
