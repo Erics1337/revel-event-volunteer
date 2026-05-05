@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { isAdmin } from '@/lib/auth/roles'
+import { getAssignedCountForShift } from '@/lib/shifts/availability'
 import { NextResponse } from 'next/server'
 
 interface VolunteerContactPayload {
@@ -203,7 +204,13 @@ export async function POST(request: Request) {
       )
     }
 
-    if ((shift.filled_slots ?? 0) >= shift.total_slots) {
+    const { count: assignedCount, error: assignedCountError } = await getAssignedCountForShift(supabase, shift.id)
+
+    if (assignedCountError) {
+      return NextResponse.json({ error: assignedCountError.message }, { status: 500 })
+    }
+
+    if (assignedCount >= shift.total_slots) {
       return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
     }
 
@@ -304,6 +311,10 @@ export async function POST(request: Request) {
     const { data: assignment, error: mutationError } = await mutation
 
     if (mutationError) {
+      if (mutationError.message.includes('Shift is already full')) {
+        return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
+      }
+
       return NextResponse.json({ error: mutationError.message }, { status: 500 })
     }
 

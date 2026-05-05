@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/require-admin'
+import { applyComputedFilledSlots } from '@/lib/shifts/availability'
 import { sanitizeShiftInput, sortShifts, syncVenuesForShifts, toShiftInsert } from '@/lib/shifts/admin'
 
 export async function POST(request: Request) {
@@ -73,7 +74,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ shifts: sortShifts(shifts || []) })
+    const computed = await applyComputedFilledSlots(supabase, shifts || [])
+
+    if (computed.error) {
+      return NextResponse.json({ error: computed.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ shifts: sortShifts(computed.shifts) })
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { applyComputedFilledSlots } from '@/lib/shifts/availability'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -36,7 +37,14 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ shifts })
+    const computed = await applyComputedFilledSlots(supabase, shifts || [])
+
+    if (computed.error) {
+      console.error('Error computing volunteer shift availability:', computed.error)
+      return NextResponse.json({ error: computed.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ shifts: computed.shifts })
   } catch (error) {
     console.error('Error in volunteer shifts API:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

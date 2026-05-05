@@ -49,6 +49,8 @@ export async function GET() {
   const assignments = (data || []).map((a) => {
     const volunteer = Array.isArray(a.volunteers) ? a.volunteers[0] : a.volunteers
     const userRow = volunteer && (Array.isArray(volunteer.users) ? volunteer.users[0] : volunteer.users)
+    const name = userRow?.name?.trim() || volunteer?.fallback_name?.trim() || userRow?.email?.trim() || volunteer?.fallback_email?.trim() || volunteer?.phone?.trim() || 'Unknown'
+    const email = userRow?.email?.trim() || volunteer?.fallback_email?.trim() || ''
     return {
       id: a.id,
       shift_id: a.shift_id,
@@ -60,8 +62,8 @@ export async function GET() {
             id: volunteer.id,
             phone: volunteer.phone,
             status: volunteer.status,
-            name: userRow?.name ?? volunteer.fallback_name ?? 'Unknown',
-            email: userRow?.email ?? volunteer.fallback_email ?? '',
+            name,
+            email,
             user_id: userRow?.id ?? null,
           }
         : null,

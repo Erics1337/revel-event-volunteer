@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { requireAdmin } from '@/lib/admin/require-admin'
+import { applyComputedFilledSlots } from '@/lib/shifts/availability'
 import {
   parseShiftCsv,
   parseShiftRows,
@@ -83,7 +84,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ shifts: sortShifts(shifts || []), imported: parsed.shifts.length })
+    const computed = await applyComputedFilledSlots(supabase, shifts || [])
+
+    if (computed.error) {
+      return NextResponse.json({ error: computed.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ shifts: sortShifts(computed.shifts), imported: parsed.shifts.length })
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
