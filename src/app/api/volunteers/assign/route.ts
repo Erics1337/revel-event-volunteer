@@ -318,8 +318,8 @@ export async function POST(request: Request) {
     const { data: assignment, error: mutationError } = await mutation
 
     if (mutationError) {
-      if (mutationError.message.includes('Shift is already full')) {
-        return NextResponse.json({ error: 'This shift is already full' }, { status: 409 })
+      if (mutationError?.code === '23514') {
+        return NextResponse.json({ error: 'This shift is already full', code: 'SHIFT_FULL' }, { status: 409 })
       }
 
       return NextResponse.json({ error: mutationError.message }, { status: 500 })
